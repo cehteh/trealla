@@ -88,6 +88,7 @@ struct llist
 };
 #endif
 typedef struct llist* LList;
+typedef const struct llist* const_LList;
 
 /**
  * Macro to instantiate a local llist.
@@ -197,7 +198,7 @@ LLIST_FUNC (LList llist_init (LList self),
 /**
  * Check if a node is not linked with some other node.
  */
-LLIST_FUNC (int llist_is_empty (const LList self),
+LLIST_FUNC (int llist_is_empty (const_LList self),
             return self->next == self;
 );
 
@@ -205,7 +206,7 @@ LLIST_FUNC (int llist_is_empty (const LList self),
  * Check if self is the only node in a list or self is not in a list.
  * @param self node to be checked
  */
-LLIST_FUNC (int llist_is_single (const LList self),
+LLIST_FUNC (int llist_is_single (const_LList self),
             return self->next->next == self;
 );
 
@@ -214,7 +215,7 @@ LLIST_FUNC (int llist_is_single (const LList self),
  * @param self root of the list
  * @param head expected head of the list
  */
-LLIST_FUNC (int llist_is_head (const LList self, const LList head),
+LLIST_FUNC (int llist_is_head (const_LList self, const_LList head),
             return self->next == head;
 );
 
@@ -223,7 +224,7 @@ LLIST_FUNC (int llist_is_head (const LList self, const LList head),
  * @param self root of the list
  * @param tail expected tail of the list
  */
-LLIST_FUNC (int llist_is_tail (const LList self, const LList tail),
+LLIST_FUNC (int llist_is_tail (const_LList self, const_LList tail),
             return self->prev == tail;
 );
 
@@ -233,7 +234,7 @@ LLIST_FUNC (int llist_is_tail (const LList self, const LList tail),
  * @param self root node of the list
  * @param end expected end of the list
  */
-LLIST_FUNC (int llist_is_end (const LList self, const LList end),
+LLIST_FUNC (int llist_is_end (const_LList self, const_LList end),
             return self == end;
 );
 
@@ -242,8 +243,8 @@ LLIST_FUNC (int llist_is_end (const LList self, const LList end),
  * @param self root node of the list
  * @param member node to be searched
  */
-LLIST_FUNC (int llist_is_member (const LList self, const LList member),
-            for (const LList i = member->next; i != member; i = i->next)
+LLIST_FUNC (int llist_is_member (const_LList self, const_LList member),
+            for (const_LList i = member->next; i != member; i = i->next)
               {
                 if (i == self)
                   return 1;
@@ -257,8 +258,8 @@ LLIST_FUNC (int llist_is_member (const LList self, const LList member),
  * @param before expected to be before after
  * @param after expected to be after before
  */
-LLIST_FUNC (int llist_is_before_after (const LList self, const LList before, const LList after),
-            for (const LList i = before->next; i != self; i = i->next)
+LLIST_FUNC (int llist_is_before_after (const_LList self, const_LList before, const_LList after),
+            for (const_LList i = before->next; i != self; i = i->next)
               {
                 if (i == after)
                   return 1;
@@ -271,9 +272,9 @@ LLIST_FUNC (int llist_is_before_after (const LList self, const LList before, con
  * @param self root node of the list
  * @return number of nodes in self
  */
-LLIST_FUNC (unsigned llist_count (const LList self),
+LLIST_FUNC (unsigned llist_count (const_LList self),
             unsigned cnt = 0;
-            const LList i = self;
+            const_LList i = self;
             for (; i->next != self; ++cnt, i = i->next);
             return cnt;
 );
@@ -457,7 +458,7 @@ LLIST_FUNC (LList llist_retreat (LList self),
  * @return node after self
  * Will not stop at tail
  */
-LLIST_FUNC (LList llist_next (const LList self),
+LLIST_FUNC (LList llist_next (const_LList self),
             return self->next;
 );
 
@@ -467,7 +468,7 @@ LLIST_FUNC (LList llist_next (const LList self),
  * @return node before self
  * Will not stop at head
  */
-LLIST_FUNC (LList llist_prev (const LList self),
+LLIST_FUNC (LList llist_prev (const_LList self),
             return self->prev;
 );
 
@@ -511,7 +512,7 @@ LLIST_FUNC (LList llist_nth (LList self, int n),
  * @param n nth element after (positive n) or before (negative n) self
  * @param stop node which will abort the iteration
  */
-LLIST_FUNC (LList llist_get_nth_stop (LList self, int n, const LList stop),
+LLIST_FUNC (LList llist_get_nth_stop (LList self, int n, const_LList stop),
             if (n>0)
               while (n--)
                 {
@@ -539,7 +540,7 @@ LLIST_FUNC (LList llist_get_nth_stop (LList self, int n, const LList stop),
  * @return shall return a value less than zero, zero, biggier than zero when
  *         a is less than, equal to, biggier than b
  */
-typedef int (*llist_cmpfn)(const LList a, const LList b, void* extra);
+typedef int (*llist_cmpfn)(const_LList a, const_LList b, void* extra);
 
 
 /**
@@ -584,7 +585,7 @@ LLIST_FUNC (LList llist_sort (LList self, llist_cmpfn cmp, void* extra),
  * @param cmp function for comparing 2 nodes
  * @return pointer to the found LList element or NULL if nothing found
  */
-LLIST_FUNC (LList llist_find (const LList self, const LList templ, llist_cmpfn cmp, void* extra),
+LLIST_FUNC (LList llist_find (const_LList self, const_LList templ, llist_cmpfn cmp, void* extra),
             LLIST_FOREACH(self, node)
             {
               if (!cmp (node, templ, extra))
@@ -603,7 +604,7 @@ LLIST_FUNC (LList llist_find (const LList self, const LList templ, llist_cmpfn c
  * @param cmp function for comparing 2 nodes
  * @return pointer to the found LList element (head) or NULL if nothing found
  */
-LLIST_FUNC (LList llist_ufind (LList self, const LList templ, llist_cmpfn cmp, void* extra),
+LLIST_FUNC (LList llist_ufind (LList self, const_LList templ, llist_cmpfn cmp, void* extra),
             LLIST_FOREACH(self, node)
             {
               if (!cmp (node, templ, extra))
@@ -626,7 +627,7 @@ LLIST_FUNC (LList llist_ufind (LList self, const LList templ, llist_cmpfn cmp, v
  * @param cmp function for comparing 2 nodes
  * @return pointer to the found LList element or NULL if nothing foound
  */
-LLIST_FUNC (LList llist_sfind (const LList self, const LList templ, llist_cmpfn cmp, void* extra),
+LLIST_FUNC (LList llist_sfind (const_LList self, const_LList templ, llist_cmpfn cmp, void* extra),
             LLIST_FOREACH(self, node)
             {
               int c = cmp (node, templ, extra);
