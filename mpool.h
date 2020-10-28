@@ -226,10 +226,10 @@ mpool_alloc (MPool self, void* near);
 //:  `self`::
 //:         pointer to the memory pool
 //:  `element`::
-//:         element to be freed
+//:         reference to element to be freed
 //:
 void
-mpool_free (MPool self, void* element);
+mpool_free (MPool self, void** element);
 
 //PLANNED: implement me, free ncont continuous elements
 //void

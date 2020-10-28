@@ -405,19 +405,23 @@ mpool_alloc (MPool self, void* near)
 
 
 void
-mpool_free (MPool self, void* element)
+mpool_free (MPool self, void** element)
 {
   if (self && element)
     {
-      MPoolcluster cluster = element_cluster_get (self,element);
+      MPoolcluster cluster = element_cluster_get (self, *element);
 
-      bitmap_clear_element (cluster, self, element);
-      llist_init (&((MPoolnode)element)->firstfree.node);
+      if (cluster)
+        {
+          bitmap_clear_element (cluster, self, *element);
+          llist_init (&((MPoolnode)*element)->firstfree.node);
 
-      //TODO: coalesce
-      llist_insert_tail (&self->freelists[0], &((MPoolnode)element)->firstfree.node);
+          //TODO: coalesce
+          llist_insert_tail (&self->freelists[0], &((MPoolnode)*element)->firstfree.node);
 
-      ++self->elements_free;
+          ++self->elements_free;
+          *element = NULL;
+        }
     }
 }
 
