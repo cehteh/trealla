@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <string.h>
 
 #include "mpool.h"
 
@@ -36,7 +37,7 @@
 
   * Free elements are chained on linked lists and marked on a bitmap
   * Ranges of free elements are coalesced
-  * only the first and last bit of any range is valid. Bits in-between have undefined states.
+  * only the first and last bit of any free range is valid. Bits in-between have undefined states.
 
  */
 
@@ -53,13 +54,18 @@
 /*
   defaults for the hooks, used when creating mpools
  */
+#ifdef MPOOL_MALLOC_HOOKS
 void *(*mpool_malloc_hook)(size_t size) = malloc;
 void (*mpool_free_hook)(void *ptr) = free;
+#endif
 
+
+#ifdef MPOOL_INIT_HOOKS
 /* called after a mpool got initialized */
 void (*mpool_init_hook) (MPool self) = NULL;
 /* called before a mpool gets destroyed */
 void (*mpool_destroy_hook) (MPool self) = NULL;
+#endif
 
 /*
   Cluster and node structures are private
@@ -88,9 +94,6 @@ union mpoolnode
     MPoolnode first;
     void* null; // being NULL identifies a lastfree element
   } lastfree;
-
-  // otherwwise, when used its just plain data
-  char data[];
 };
 
 
@@ -112,25 +115,29 @@ mpool_init (MPool self, size_t elem_size, size_t elements_per_cluster, mpool_des
       llist_init (&self->clusters);
 
       /* minimum size is the size of a union mpoolnode */
-      if (self->elem_size < sizeof(union mpoolnode))
-        self->elem_size = sizeof(union mpoolnode);
+      if (elem_size < sizeof(union mpoolnode))
+        elem_size = sizeof(union mpoolnode);
 
       self->elem_size = (elem_size+sizeof(void*)-1) / sizeof(void*) * sizeof(void*);    /* pointer aligned */
 
       self->elements_per_cluster = elements_per_cluster;
 
-      self->cluster_size = sizeof (mpoolcluster) +              /* header */
+      self->cluster_size = sizeof (struct mpoolcluster) +       /* header */
         MPOOL_BITMAP_SIZE (self->elements_per_cluster) +        /* bitmap */
         self->elem_size * self->elements_per_cluster;           /* elements */
 
       self->elements_free = 0;
       self->destroy = dtor;
 
+#ifdef MPOOL_MALLOC_HOOKS
       self->malloc_hook = mpool_malloc_hook;
       self->free_hook = mpool_free_hook;
+#endif
 
+#ifdef MPOOL_INIT_HOOKS
       if (mpool_init_hook)
         mpool_init_hook (self);
+#endif
     }
 
   return self;
@@ -163,8 +170,10 @@ mpool_destroy (MPool self)
 {
   if (self)
     {
+#ifdef MPOOL_INIT_HOOKS
       if (mpool_destroy_hook)
         mpool_destroy_hook (self);
+#endif
 
       LLIST_WHILE_TAIL(&self->clusters, cluster)
         {
@@ -179,11 +188,16 @@ mpool_destroy (MPool self)
               }
 
           llist_unlink_fast_ (cluster);
+#ifdef MPOOL_MALLOC_HOOKS
           self->free_hook (cluster);
+#else
+          free (cluster);
+#endif
         }
 
       //PLANNED: buckets
       llist_init (&self->freelist);
+
       self->elements_free = 0;
     }
 
@@ -203,7 +217,11 @@ mpool_purge (MPool self)
 MPool
 mpool_cluster_alloc_ (MPool self)
 {
+#ifdef MPOOL_MALLOC_HOOKS
   MPoolcluster cluster = self->malloc_hook (self->cluster_size);
+#else
+  MPoolcluster cluster = malloc (self->cluster_size);
+#endif
 
   if (!cluster)
     return NULL;
@@ -216,7 +234,7 @@ mpool_cluster_alloc_ (MPool self)
   for (size_t i = 0; i < self->elements_per_cluster; ++i)
     {
       MPoolnode node = cluster_element_get (cluster, self, i);
-      llist_insert_tail (&self->freelist, llist_init (&node->node));
+      llist_insert_tail (&self->freelist, llist_init (&node->firstfree.node));
     }
 
   /* we insert the cluster at head because its likely be used next */
@@ -228,7 +246,7 @@ mpool_cluster_alloc_ (MPool self)
 
 
 static int
-cmp_cluster_contains_element (const LList cluster, const LList element, void* cluster_size)
+cmp_cluster_contains_element (const_LList cluster, const_LList element, void* cluster_size)
 {
   if (element < cluster)
     return -1;
@@ -342,7 +360,7 @@ bitmap_clear_element (MPoolcluster cluster, MPool self, void* element)
 
 
 void*
-mpool_alloc_near (MPool self, void* near)
+mpool_alloc (MPool self, void* near)
 {
   if (!self->elements_free)
     {
@@ -432,17 +450,17 @@ mpool_free (MPool self, void* element)
       MPoolnode near = find_near (cluster, self, element);
 
       bitmap_clear_element (cluster, self, element);
-      llist_init (&((MPoolnode)element)->node);
+      llist_init (&((MPoolnode)element)->firstfree.node);
 
       if (near)
         {
           if (near < (MPoolnode)element)
-            llist_insert_next (&near->node, &((MPoolnode)element)->node);
+            llist_insert_next (&near->firstfree.node, &((MPoolnode)element)->firstfree.node);
           else
-            llist_insert_prev (&near->node, &((MPoolnode)element)->node);
+            llist_insert_prev (&near->firstfree.node, &((MPoolnode)element)->firstfree.node);
         }
       else
-        llist_insert_tail (&self->freelist, &((MPoolnode)element)->node);
+        llist_insert_tail (&self->freelist, &((MPoolnode)element)->firstfree.node);
 
       ++self->elements_free;
     }

@@ -21,7 +21,7 @@
 */
 
 #include <stdint.h>
-#include "lib/llist.h"
+#include "llist.h"
 
 //mpool:
 //: Memory Pools
@@ -34,9 +34,6 @@
 //: care for proper locking elsewhere.
 //:
 
-// Configuration
-// enable the mpool_reserve() API
-#define MPOOL_RESERVE
 
 // support continuous allocations of n elements at once
 //PLANNED: #define MPOOL_CONTINUOUS_ALLOCATIONS
@@ -82,24 +79,27 @@ struct mpool
   size_t elem_size;
   size_t elements_per_cluster;
   size_t cluster_size;
-  //PLANNED: make 'reserve' configurable
-#ifdef MPOOL_RESERVE
-  size_t elements_free;               /* a counter of free elements is the price we pay to support a reserve() operation */
-#endif
+  size_t elements_free;
   //TODO: void* locality; removed for now //PLANNED: tls -> clusters
   mpool_destroy_fn destroy;
+#ifdef MPOOL_MALLOC_HOOKS
   void *(*malloc_hook)(size_t);
   void (*free_hook)(void *);
+#endif
 };
 
 
+#ifdef MPOOL_MALLOC_HOOKS
 extern void *(*mpool_malloc_hook)(size_t size);
 extern void (*mpool_free_hook)(void *ptr);
+#endif
 
+#ifdef MPOOL_INIT_HOOKS
 /* called after a mpool got initialized */
 extern void (*mpool_init_hook) (MPool self);
 /* called before a mpool gets destroyed */
 extern void (*mpool_destroy_hook) (MPool self);
+#endif
 
 //: [[mpool_init]]
 //: .mpool_init
@@ -170,8 +170,6 @@ mpool_available (MPool self)
   return self->elements_free;
 }
 
-
-//index.mpool_reserve xref:mpool_reserve[mpool_reserve()]:: preallocate elements
 //: [[mpool_reserve]]
 //: .mpool_reserve
 //: Resize the pool that at least nelements become available without cluster reallocations
@@ -188,14 +186,12 @@ mpool_available (MPool self)
 MPool
 mpool_reserve (MPool self, size_t nelements);
 
-
-//index.mpool_alloc_near xref:mpool_alloc_near[mpool_alloc_near()]:: allocate one element, w/ locality
-//: [[mpool_alloc_near]]
-//: .mpool_alloc_near
+//: [[mpool_alloc]]
+//: .mpool_alloc
 //: Allocates on element from a mpool. To improve cache locality the allocation
 //: tries to get an element close to another.
 //:
-//:  void* mpool_alloc_near (MPool self, void* near)
+//:  void* mpool_alloc (MPool self, void* near)
 //:
 //:  `self`::
 //:         pointer to the memory pool
@@ -207,7 +203,7 @@ mpool_reserve (MPool self, size_t nelements);
 //:         will never fail when enough space was preallocated
 //:
 void*
-mpool_alloc_near (MPool self, void* near);
+mpool_alloc (MPool self, void* near);
 
 //PLANNED: implement me, allocate ncont continuous elements
 // :  return::
@@ -219,7 +215,7 @@ mpool_alloc_near (MPool self, void* near);
 // : does not clear the memory
 // :
 //void*
-//mpool_calloc_near (MPool self, size_t ncont, void* near);
+//mpool_calloc (MPool self, size_t ncont, void* near);
 
 //: [[mpool_free]]
 //: .mpool_free
