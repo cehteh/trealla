@@ -42,9 +42,9 @@
 //PLANNED: #define MPOOL_COALESCE
 
 // bucketize the freelist
-//PLANNED: #define MPOOL_BUCKETS 8
+#define MPOOL_BUCKETS 8
 
-//PLANNED: RANK/INCREMENT of each bucket 2 => (1 4 16 64 256 ...)
+//PLANNED: RANK/INCREMENT of each bucket 2 => (1 4 16 64 256 1024 4096 16384 65536 ...)
 
 //PLANNED: strategy for non-near allocations: new bucket if less than 50% of a bucket is free
 
@@ -72,7 +72,7 @@ typedef struct mpool* MPool;
 
 struct mpool
 {
-  struct llist freelist;  //PLANNED: multiple freelists for coalesced buckets? each has 'more than 2^x' free elements, can we find/order free blocks?
+  struct llist freelists[MPOOL_BUCKETS];
   struct llist clusters;
   //PLANNED: MPoolcluster free_cluster; when a cluster becomes completely unused its cached here, and (if exists) the previous cached cluster gets really freed
   //PLANNED+  this keeps one free cluster lingering

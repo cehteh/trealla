@@ -110,8 +110,10 @@ mpool_init (MPool self, size_t elem_size, size_t elements_per_cluster, mpool_des
 {
   if (self)
     {
-      //PLANNED: buckets
-      llist_init (&self->freelist);
+      for (unsigned i = 0; i < MPOOL_BUCKETS; ++i)
+        {
+          llist_init (&self->freelists[i]);
+        }
       llist_init (&self->clusters);
 
       /* minimum size is the size of a union mpoolnode */
@@ -195,8 +197,10 @@ mpool_destroy (MPool self)
 #endif
         }
 
-      //PLANNED: buckets
-      llist_init (&self->freelist);
+      for (unsigned i = 0; i < MPOOL_BUCKETS; ++i)
+        {
+          llist_init (&self->freelists[i]);
+        }
 
       self->elements_free = 0;
     }
@@ -234,7 +238,7 @@ mpool_cluster_alloc_ (MPool self)
   for (size_t i = 0; i < self->elements_per_cluster; ++i)
     {
       MPoolnode node = cluster_element_get (cluster, self, i);
-      llist_insert_tail (&self->freelist, llist_init (&node->firstfree.node));
+      llist_insert_tail (&self->freelists[0], llist_init (&node->firstfree.node));
     }
 
   /* we insert the cluster at head because its likely be used next */
@@ -384,7 +388,7 @@ mpool_alloc (MPool self, void* near)
   if (!ret)
     {
       //PLANNED: from buckets
-      ret = llist_head (&self->freelist);
+      ret = llist_head (&self->freelists[0]);
     }
 
   if (ret)
@@ -411,7 +415,7 @@ mpool_free (MPool self, void* element)
       llist_init (&((MPoolnode)element)->firstfree.node);
 
       //TODO: coalesce
-      llist_insert_tail (&self->freelist, &((MPoolnode)element)->firstfree.node);
+      llist_insert_tail (&self->freelists[0], &((MPoolnode)element)->firstfree.node);
 
       ++self->elements_free;
     }
