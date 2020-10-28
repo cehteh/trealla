@@ -400,67 +400,18 @@ mpool_alloc (MPool self, void* near)
 }
 
 
-//PLANNED: is it important to keep the freelists semisorted?
-static MPoolnode
-find_near (MPoolcluster cluster, MPool self, void* element)
-{
-  void* begin_of_elements =
-    (void*)cluster +
-    sizeof (*cluster) +                                                 /* header */
-    MPOOL_BITMAP_SIZE (((MPool)self)->elements_per_cluster);            /* bitmap */
-
-  uintptr_t index = (element - begin_of_elements) / self->elem_size;
-  uintptr_t quot = index>>MPOOL_DIV_SHIFT;
-  uintptr_t rem = index & ~((~MPOOL_C(0))<<MPOOL_DIV_SHIFT);
-
-  uintptr_t* bitmap = (uintptr_t*)&cluster->data;
-  size_t r = ~0U;
-
-  /* the bitmap word at locality */
-  if (bitmap[quot] < UINTPTR_MAX)
-    {
-      r = uintptr_nearestbit (~bitmap[quot], rem);
-    }
-  /* the bitmap word after element, we assume that elements after the searched element are more likely be free */
-  else if (index < self->elements_per_cluster && bitmap[quot+1] < UINTPTR_MAX)
-    {
-      ++quot;
-      r = uintptr_nearestbit (~bitmap[quot], 0);
-    }
-  /* finally the bitmap word before element */
-  else if (index > 0 && bitmap[quot-1] < UINTPTR_MAX)
-    {
-      --quot;
-      r = uintptr_nearestbit (~bitmap[quot], sizeof(uintptr_t)*CHAR_BIT-1);
-    }
-
-  if (r != ~0U && (quot*sizeof(uintptr_t)*CHAR_BIT+r) < self->elements_per_cluster)
-    return begin_of_elements + ((uintptr_t)(quot*sizeof(uintptr_t)*CHAR_BIT+r)*self->elem_size);
-
-  return NULL;
-}
-
-
 void
 mpool_free (MPool self, void* element)
 {
   if (self && element)
     {
       MPoolcluster cluster = element_cluster_get (self,element);
-      MPoolnode near = find_near (cluster, self, element);
 
       bitmap_clear_element (cluster, self, element);
       llist_init (&((MPoolnode)element)->firstfree.node);
 
-      if (near)
-        {
-          if (near < (MPoolnode)element)
-            llist_insert_next (&near->firstfree.node, &((MPoolnode)element)->firstfree.node);
-          else
-            llist_insert_prev (&near->firstfree.node, &((MPoolnode)element)->firstfree.node);
-        }
-      else
-        llist_insert_tail (&self->freelist, &((MPoolnode)element)->firstfree.node);
+      //TODO: coalesce
+      llist_insert_tail (&self->freelist, &((MPoolnode)element)->firstfree.node);
 
       ++self->elements_free;
     }
