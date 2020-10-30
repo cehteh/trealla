@@ -534,8 +534,8 @@ LLIST_FUNC (LList llist_get_nth_stop (LList self, int n, const_LList stop),
 /**
  * The comparsion function function type.
  * certain sort and find functions depend on a user supplied coparsion function
- * @param a first operand for the comparsion
- * @param b second operand for the comparsion
+ * @param a first operand for the comparison
+ * @param b second operand for the comparison
  * @param extra user supplied data which passed through
  * @return shall return a value less than zero, zero, biggier than zero when
  *         a is less than, equal to, biggier than b
@@ -545,7 +545,7 @@ typedef int (*llist_cmpfn)(const_LList a, const_LList b, void* extra);
 
 /**
  * Sort a list.
- * recursive mergesort, recursive unoptimized implementation yet, but it reasonable fast
+ * recursive mergesort, recursive unoptimized implementation yet
  * @param self list to be sorted
  * @param cmp function for comparing 2 nodes
  * @param extra generic data passed to the cmp function
@@ -625,7 +625,7 @@ LLIST_FUNC (LList llist_ufind (LList self, const_LList templ, llist_cmpfn cmp, v
  * @param self list to be searched
  * @param templ template for the element being searched
  * @param cmp function for comparing 2 nodes
- * @return pointer to the found LList element or NULL if nothing foound
+ * @return pointer to the found LList element or NULL if nothing found
  */
 LLIST_FUNC (LList llist_sfind (const_LList self, const_LList templ, llist_cmpfn cmp, void* extra),
             LLIST_FOREACH(self, node)
