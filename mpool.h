@@ -20,6 +20,18 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#ifndef MPOOL_H
+#define MPOOL_H
+
+#ifndef MPOOL_LOG
+#define MPOOL_LOG(...)
+#endif
+
+#ifndef MPOOL_ERRLOG
+#define MPOOL_ERRLOG(...)
+#endif
+
+
 #include <stdint.h>
 #include "llist.h"
 
@@ -35,6 +47,8 @@
 //:
 
 
+//PLANNED: cluster dispatcher for calloc different range sizes prefer different clusters
+//PLANNED: macro calculation elements_per_cluster for a given cluster size, allowing page aligned clusters
 // support continuous allocations of n elements at once
 //PLANNED: #define MPOOL_CONTINUOUS_ALLOCATIONS
 
@@ -237,6 +251,8 @@ mpool_free (MPool self, void** element);
 
 //PLANNED * alloc/free for n contingous elements
 
+
+#endif
 
 //      Local Variables:
 //      mode: C
