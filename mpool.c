@@ -29,16 +29,34 @@
 
 #include "mpool.h"
 
+//
+// MPool
+// The management structure for related allocations of same element size.
+// Maintains freelists of all free chunks.
+// Memory is allocated in fixed sized clusters, managed by MPool.
+//
+// Allocation strategies:
+// a 'near' allocation is cluster local and searches 3*bits_per_pointer around the near hint for free elements.
+//
+// MPoolcluster
+// A bitmap with bits set at free-chunk borders.
+// Followed by elements. Minimum size for an element is 3 pointers. Aligned on pointer size.
+//
+// free-chunks are ranges of unused elements where the first and the last element contain
+// management information to manage the freed memory. Free chunks are always coalesced.
+//
+
+
 //PLANNED: mt support, start with one cluster per thread which becomes the entry for new allocations
 //PLANNED+  implement locking/stealing for clusters and main mpool
 
 /*
   Implementation Notes: (braindump, planned features)
 
-  * Free elements are chained on linked lists and marked on a bitmap
+  * Free elements are chained on linked lists
   * Ranges of free elements are coalesced
-  * only the first and last bit of any free range is valid. Bits in-between have undefined states.
-
+  * the first and last bit of any free range is set. These nodes are interpreted as firstfree/lastfree
+  * all other bits in the bitmap are cleared
  */
 
 
