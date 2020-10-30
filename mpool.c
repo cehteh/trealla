@@ -205,15 +205,21 @@ mpool_destroy (MPool self)
       LLIST_WHILE_TAIL(&self->clusters, cluster)
         {
           if (self->destroy)
-            for (size_t i = 0; i < self->elements_per_cluster; ++i)
-              {
-                //FIXME: coalesced nodes need more work for picking used elements since the bitmap is only borders
-                if (cluster_get_bitn ((MPoolcluster)cluster, i))
-                  {
-                    void* element = cluster_get_element ((MPoolcluster)cluster, self, i);
-                    self->destroy (element);
-                  }
-              }
+            {
+              bool isfree = cluster_get_bitn ((MPoolcluster)cluster, 0);
+              for (size_t i = isfree; i < self->elements_per_cluster; ++i)
+                {
+                  if(cluster_get_bitn ((MPoolcluster)cluster, i))
+                    {
+                      isfree = !isfree;
+                    }
+                  else if (!isfree)
+                    {
+                      void* element = cluster_get_element ((MPoolcluster)cluster, self, i);
+                      self->destroy (element);
+                    }
+                }
+            }
 
           llist_unlink_fast_ (cluster);
 #ifdef MPOOL_MALLOC_HOOKS

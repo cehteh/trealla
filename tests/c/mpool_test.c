@@ -10,6 +10,14 @@
 
 #include "../../mpool.c"
 
+
+void
+destroy_report(void* p)
+{
+  MPOOL_LOG("destroyed %p", p);
+}
+
+
 int
 main (int argc, char* argv[])
 {
@@ -19,7 +27,7 @@ main (int argc, char* argv[])
   printf("mpool test:\n");
 
   struct mpool testpool;
-  mpool_init (&testpool, 16, 32000, NULL);
+  mpool_init (&testpool, 16, 32000, destroy_report);
   printf("free %zu\n", mpool_available (&testpool));
 
   mpool_reserve (&testpool, 32);
@@ -31,6 +39,7 @@ main (int argc, char* argv[])
   void* element2 = mpool_alloc (&testpool, NULL);
   printf("element2 at %p, free %zu\n", element2, mpool_available (&testpool));
 
+#if 0
 #if 0
   mpool_free (&testpool, &element1);
   printf("free %zu\n", mpool_available (&testpool));
@@ -67,6 +76,7 @@ main (int argc, char* argv[])
   {
     mpool_free (&testpool, &elementv[i]);
   }
+#endif
 #endif
 
   mpool_destroy (&testpool);
