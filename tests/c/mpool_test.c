@@ -4,10 +4,11 @@
 #include <stdlib.h>
 
 
+#define MPOOL_LOG(fmt,...) printf("%s:%d %s: " fmt "\n", __FILE__, __LINE__, __func__,  ## __VA_ARGS__)
+#define MPOOL_ERRLOG(fmt,...) fprintf(stderr, "%s:%d %s: " fmt "\n", __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+
 
 #include "../../mpool.c"
-
-
 
 int
 main (int argc, char* argv[])
@@ -18,7 +19,7 @@ main (int argc, char* argv[])
   printf("mpool test:\n");
 
   struct mpool testpool;
-  mpool_init (&testpool, 32, 32000, NULL);
+  mpool_init (&testpool, 16, 32000, NULL);
   printf("free %zu\n", mpool_available (&testpool));
 
   mpool_reserve (&testpool, 32);
@@ -30,13 +31,13 @@ main (int argc, char* argv[])
   void* element2 = mpool_alloc (&testpool, NULL);
   printf("element2 at %p, free %zu\n", element2, mpool_available (&testpool));
 
-
+#if 0
   mpool_free (&testpool, &element1);
   printf("free %zu\n", mpool_available (&testpool));
 
   element1 = mpool_alloc (&testpool, NULL);
   printf("element1 at %p, free %zu\n", element1, mpool_available (&testpool));
-
+#endif
 
   void* elementv[31000];
   for (unsigned i = 0; i < 31000; ++i)
@@ -61,14 +62,13 @@ main (int argc, char* argv[])
 
   printf("free %zu\n", mpool_available (&testpool));
 
+#if 0
   for (unsigned i = 0; i < 31000; i+=4)
   {
     mpool_free (&testpool, &elementv[i]);
   }
+#endif
 
-
-
-  
   mpool_destroy (&testpool);
 
   printf("done\n");

@@ -94,6 +94,7 @@ struct mpool
   size_t elements_per_cluster;
   size_t cluster_size;
   size_t elements_free;
+  size_t clusters_allocated;
   //TODO: void* locality; removed for now //PLANNED: tls -> clusters
   mpool_destroy_fn destroy;
 #ifdef MPOOL_MALLOC_HOOKS
