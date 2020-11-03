@@ -137,6 +137,9 @@ static MPool
 mpool_cluster_alloc (MPool self);
 
 static void
+mpool_freellist_insert (MPool self, MPoolnode node);
+
+static void
 cluster_bit_set (MPoolcluster cluster, size_t index);
 
 static void
@@ -197,7 +200,6 @@ mpool_init (MPool self, size_t elem_size, size_t elements_per_cluster, mpool_des
       if (mpool_init_hook)
         mpool_init_hook (self);
 #endif
-      MPOOL_LOG("mpool %p initialized", self);
     }
 
   return self;
@@ -217,6 +219,8 @@ mpool_destroy (MPool self)
         {
           if (self->destroy)
             {
+              // important: destroy is called per element, even when ranges where allocated
+              //TODO: should destroy return a size/skip value?
               bool isfree = cluster_get_bit ((MPoolcluster)cluster, 0);
               for (size_t i = isfree; i < self->elements_per_cluster; ++i)
                 {
@@ -252,7 +256,7 @@ mpool_destroy (MPool self)
   return self;
 }
 
-#if 0 //not implemented
+#if 0 //PLANNED: not implemented
 MPool
 mpool_purge (MPool self)
 {
@@ -297,47 +301,94 @@ mpool_alloc (MPool self, void* near)
   return node;
 }
 
-#if 0 //old impl
-void
-mpool_free (MPool self, void** element)
-{
-  if (self && element)
-    {
-      MPoolcluster cluster = element_cluster_get (self, *element);
 
-      if (cluster)
+void
+mpool_cfree (MPool self, void** element, size_t n)
+{
+  if (self && element && *element)
+    {
+      //TODO: if cluster becomes free then if(free_cluster)free(free_cluster); free_cluster = cluster;
+      MPoolcluster cluster = mpool_get_cluster (self, *element);
+      MPOOL_ASSERT(cluster); // address not in pool
+
+      size_t startindex = cluster_get_index (cluster, self, *element);
+      size_t chunksize = n;
+
+      MPoolnode chunkstart = (MPoolnode)*element;
+      MPoolnode chunkend = (MPoolnode)((char*)*element + self->elem_size * (chunksize-1));
+
+      llist_init (&chunkstart->firstfree.node);  // maybe unused when coalescing front
+
+      if (startindex > 0 && cluster_get_bit (cluster, startindex-1))
         {
-          bitmap_clear_element (cluster, self, *element, 0);
-          llist_init (&((MPoolnode)*element)->firstfree.node);
-
-          //TODO: coalesce
-          llist_insert_tail (&self->freelists[0], &((MPoolnode)*element)->firstfree.node);
-
-          ++self->elements_free;
-          *element = NULL;
+          // coalesce front
+          chunkstart = cluster_get_element (cluster, self, startindex-1);
+          if (chunkstart->lastfree.null != NULL)
+            {
+              // front size == 1
+              MPOOL_ASSERT (chunkstart->firstfree.nelements == 1);
+              startindex -= 1;
+              chunksize += 1;
+            }
+          else
+            {
+              // front size > 1
+              cluster_bit_clear (cluster, startindex-1);
+              chunkstart = chunkstart->lastfree.first;
+              startindex -= chunkstart->firstfree.nelements;
+              chunksize += chunkstart->firstfree.nelements;
+            }
+          llist_unlink_fast_ (&chunkstart->firstfree.node);
         }
-    }
-}
-#endif
+      else
+        cluster_bit_set (cluster, startindex);
 
-void
-mpool_free (MPool self, void** element)
-{
-  if (self && element)
-    {
-      MPoolcluster cluster = mpool_element_get_cluster (self, *element);
-      assert(cluster); // address not in pool
+      if (startindex + chunksize < self->elements_per_cluster-1 && cluster_get_bit (cluster, startindex+chunksize))
+        {
+          // coalesce back
+          chunkend = cluster_get_element (cluster, self, startindex+chunksize);
+          if (chunkend->firstfree.nelements == 1)
+            {
+              // back size == 1
+              chunksize += 1;
+              llist_unlink_fast_ (&chunkend->firstfree.node);
+            }
+          else
+            {
+              // back size > 1
+              cluster_bit_clear (cluster, startindex+chunksize);
+              llist_unlink_fast_ (&chunkend->firstfree.node);
+              chunksize += chunkend->firstfree.nelements;
+              chunkend = (MPoolnode)((char*)chunkend + self->elem_size * (chunkend->firstfree.nelements-1));
+            }
+        }
+      else if (chunksize > 1)
+        cluster_bit_set (cluster, startindex+chunksize-1);
 
-      cluster_element_clearbit (cluster, self, *element, 0);
-      llist_init (&((MPoolnode)*element)->firstfree.node);
+      chunkstart->firstfree.nelements = chunksize;
 
-      //TODO: coalesce
-      llist_insert_tail (&self->freelists[0], &((MPoolnode)*element)->firstfree.node);
+      if (chunkend != chunkstart)
+        {
+          chunkend->lastfree.first = chunkstart;
+          chunkend->lastfree.null = NULL;
+        }
 
-      ++self->elements_free;
+      MPOOL_ASSERT(cluster_get_bit (cluster, startindex));
+      MPOOL_ASSERT(cluster_get_bit (cluster, startindex+chunksize-1));
+
+      mpool_freellist_insert (self, chunkstart);
+
+      self->elements_free += n;
       *element = NULL;
     }
 }
+
+void
+mpool_free (MPool self, void** element)
+{
+  mpool_cfree (self, element, 1);
+}
+
 
 
 MPool
@@ -405,7 +456,6 @@ mpool_cluster_alloc (MPool self)
   llist_insert_head (&self->clusters, llist_init (&cluster->node));
   ++self->clusters_allocated;
 
-  MPOOL_LOG("cluster %p allocated", cluster);
   return self;
 }
 
@@ -457,7 +507,7 @@ mpool_alloc_far (MPool self, size_t n)
   llist_unlink_fast_ (&chunkstart->firstfree.node);
 
   MPoolcluster cluster = mpool_get_cluster (self, chunkstart);
-  assert(cluster);
+  MPOOL_ASSERT(cluster);
 
   size_t startindex = cluster_get_index(cluster, self, chunkstart);
   cluster_bit_clear (cluster, startindex);
@@ -473,14 +523,14 @@ mpool_alloc_far (MPool self, size_t n)
       if (nchunk->firstfree.nelements > 1)
         {
           MPoolnode chunkend = (MPoolnode)((char*)chunkstart + self->elem_size * nchunk->firstfree.nelements);
-          assert (chunkend->lastfree.null == NULL);
+          MPOOL_ASSERT (chunkend->lastfree.null == NULL);
           chunkend->lastfree.first = nchunk;
         }
       mpool_freellist_insert (self, nchunk);
     }
   else
     {
-      assert(chunkstart->firstfree.nelements == n);
+      MPOOL_ASSERT(chunkstart->firstfree.nelements == n);
       if (n>1)
         cluster_bit_clear (cluster, startindex+n);
     }
@@ -567,6 +617,7 @@ cluster_get_bit (MPoolcluster cluster, size_t index)
 static void
 cluster_bit_set (MPoolcluster cluster, size_t index)
 {
+  MPOOL_ASSERT(cluster_get_bit (cluster, index) == 0);
   uintptr_t quot = index>>MPOOL_DIV_SHIFT;
   uintptr_t rem = index & ~((~MPOOL_C(0))<<MPOOL_DIV_SHIFT);
   uintptr_t* bitmap = (uintptr_t*)&cluster->data;
@@ -578,6 +629,7 @@ cluster_bit_set (MPoolcluster cluster, size_t index)
 static void
 cluster_bit_clear (MPoolcluster cluster, size_t index)
 {
+  MPOOL_ASSERT(cluster_get_bit (cluster, index) == 1);
   uintptr_t quot = index>>MPOOL_DIV_SHIFT;
   uintptr_t rem = index & ~((~MPOOL_C(0))<<MPOOL_DIV_SHIFT);
   uintptr_t* bitmap = (uintptr_t*)&cluster->data;
@@ -610,15 +662,6 @@ uintptr_nearestbit (uintptr_t v, size_t n)
     }
 }
 #endif
-
-
-
-
-
-
-
-
-
 
 
 /*

@@ -227,7 +227,7 @@ mpool_alloc (MPool self, void* near);
 //: .mpool_free
 //: Frees the given element and puts it back into the pool for furhter allocations.
 //:
-//:  void mpool_free (MPool self, void* element)
+//:  void mpool_free (MPool self, void** element)
 //:
 //:  `self`::
 //:         pointer to the memory pool
