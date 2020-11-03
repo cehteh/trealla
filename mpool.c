@@ -30,6 +30,14 @@
 
 #include "mpool.h"
 
+#ifndef MPOOL_ASSERT
+#define MPOOL_ASSERT(pred) assert(pred)
+#endif
+
+#ifndef MPOOL_MSG
+#define MPOOL_MSG(...)
+#endif
+
 //
 // MPool
 // The management structure for related allocations of same element size.

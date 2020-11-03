@@ -23,15 +23,6 @@
 #ifndef MPOOL_H
 #define MPOOL_H
 
-#ifndef MPOOL_LOG
-#define MPOOL_LOG(...)
-#endif
-
-#ifndef MPOOL_ERRLOG
-#define MPOOL_ERRLOG(...)
-#endif
-
-
 #include <stdint.h>
 #include "llist.h"
 
