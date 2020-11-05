@@ -14,6 +14,7 @@
 
 #include "history.h"
 #include "trealla.h"
+#include "skiplist.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -151,6 +152,11 @@ int main(int ac, char *av[])
 	int i, did_load = 0, do_goal = 0, do_lib = 0;
 	int version = 0, quiet = 0, daemon = 0;
 	int ns = 0;
+
+#ifdef MPOOL
+        sl_pool_init();
+#endif
+
 	void *pl = pl_create();
 	set_opt(pl, 1);
 
@@ -294,5 +300,8 @@ int main(int ac, char *av[])
 
 	int halt_code = get_halt_code(pl);
 	pl_destroy(pl);
+#ifdef MPOOL
+        sl_pool_destroy();
+#endif
 	return halt_code;
 }

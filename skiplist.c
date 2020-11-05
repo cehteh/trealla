@@ -5,6 +5,8 @@
 
 #include "skiplist.h"
 
+#include "mpool.h"
+
 typedef struct keyval_ keyval_t;
 typedef struct slnode_ slnode_t;
 
@@ -37,24 +39,59 @@ struct skiplist_ {
 	unsigned seed;
 };
 
+
+
+#ifdef MPOOL
+struct mpool sl_pool_;
+//PLANNED: have at least 2 pools for nodes one for low level nodes (0,1) and one for higher level nodes.
+//PLANNED+  ideally this should lead to better locality because the skip-steps are closer together (benchmark this)
+//PLANNED+  but all skiplists allocate from the same pools which are inited/destroyed globally
+struct mpool slnode_pool_;
+
+#define SL_PER_CLUSTER 1024
+#define SLNODE_PER_CLUSTER 4096
+void sl_pool_init(void)
+{
+  mpool_init (&sl_pool_, sizeof(struct skiplist_), SL_PER_CLUSTER, NULL);
+  mpool_init (&slnode_pool_, sizeof(struct slnode_), SLNODE_PER_CLUSTER, NULL);
+}
+
+void sl_pool_destroy(void)
+{
+  mpool_destroy (&slnode_pool_);
+  mpool_destroy (&sl_pool_);
+}
+#endif
 #define MAX_LEVELS 32
 #define MAX_LEVEL (MAX_LEVELS - 1)
 #define new_node_of_level(x) (slnode_t*)malloc(sizeof(slnode_t) + ((x) * sizeof(slnode_t*)))
 
 skiplist *sl_create(int (*compkey)(const void*, const void*))
 {
+#ifdef MPOOL // MPool allocation does not zero
+	skiplist *l = mpool_alloc (&sl_pool_, NULL);
+#else
 	skiplist *l = (skiplist*)calloc(1, sizeof(struct skiplist_));
-	l->header = new_node_of_level(MAX_LEVELS);
-	l->seed = (unsigned)(size_t)(l + clock());
-	l->level = 1;
+#endif
+        if (l)
+        {
+                l->header = new_node_of_level(MAX_LEVELS);
+                l->seed = (unsigned)(size_t)(l + clock());
+                l->level = 1;
 
-	for (int i = 0; i < MAX_LEVELS; i++)
-		l->header->forward[i] = NULL;
+                for (int i = 0; i < MAX_LEVELS; i++)
+                        l->header->forward[i] = NULL;
 
-	l->header->nbr = 1;
-	l->header->bkt[0].key = NULL;
-	l->compkey = compkey;
-	l->count = 0;
+#ifdef MPOOL // MPool allocation does not zero
+                for (int i = 0; i < MAX_ITERS; i++)
+                        l->iter[i] = (struct sliter_){};
+#endif
+
+                l->header->nbr = 1;
+                l->header->bkt[0].key = NULL;
+                l->compkey = compkey;
+                l->count = 0;
+        }
 	return l;
 }
 
@@ -75,7 +112,11 @@ void sl_destroy(skiplist *l)
 		p = q;
 	}
 
+#ifdef MPOOL
+        mpool_free (&sl_pool_, (void**)&l);
+#else
 	free(l);
+#endif
 }
 
 size_t sl_count(const skiplist *l) { return l->count; }

@@ -20,7 +20,12 @@ CFLAGS += -flto=$(LTO)
 LDFLAGS += -flto=$(LTO)
 endif
 
-OBJECTS = tpl.o history.o builtins.o library.o \
+ifdef MPOOL
+OBJECTS += mpool.o
+CFLAGS += -DMPOOL
+endif
+
+OBJECTS += tpl.o history.o builtins.o library.o \
 	parse.o print.o runtime.o \
 	skiplist.o base64.o network.o utf8.o
 
@@ -61,9 +66,13 @@ parse.o: parse.c internal.h skiplist.h utf8.h history.h library.h \
  trealla.h builtins.h
 print.o: print.c internal.h skiplist.h utf8.h builtins.h network.h
 runtime.o: runtime.c internal.h skiplist.h utf8.h history.h builtins.h
-skiplist.o: skiplist.c skiplist.h
-tpl.o: tpl.c history.h trealla.h
+skiplist.o: skiplist.c skiplist.h mpool.h
+tpl.o: tpl.c history.h trealla.h skiplist.h
 utf8.o: utf8.c utf8.h
+
+ifdef MPOOL
+mpool.o: mpool.c mpool.h llist.h
+endif
 
 # Library modules
 

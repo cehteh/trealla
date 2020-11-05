@@ -5,6 +5,10 @@
 typedef struct skiplist_ skiplist;
 typedef struct sliter_ sliter;
 
+#ifdef MPOOL
+void sl_pool_init(void);
+void sl_pool_destroy(void);
+#endif
 skiplist *sl_create(int (*compkey)(const void*, const void*));
 int sl_set(skiplist *l, const void *k, const void *v);
 int sl_app(skiplist *l, const void *k, const void *v);
