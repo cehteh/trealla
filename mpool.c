@@ -267,6 +267,9 @@ mpool_purge (MPool self)
 void*
 mpool_alloc (MPool self, void* near)
 {
+  if (!self)
+    return NULL;
+
   if (!self->elements_free || (near == NULL && self->elements_free < self->elements_per_cluster/2))
     {
       if (mpool_cluster_alloc (self))
