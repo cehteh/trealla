@@ -519,7 +519,9 @@ mpool_alloc_far (MPool self, size_t n)
       MPoolnode nchunk = (MPoolnode)((char*)chunkstart + self->elem_size * n);
       llist_init (&nchunk->firstfree.node);
       nchunk->firstfree.nelements = chunkstart->firstfree.nelements - n;
-      cluster_bit_set (cluster, startindex + n);
+
+      if (nchunk->firstfree.nelements > 1)
+        cluster_bit_set (cluster, startindex + n);
 
       if (nchunk->firstfree.nelements > 1)
         {
