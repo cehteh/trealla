@@ -59,14 +59,12 @@
 //PLANNED: mt support, start with one cluster per thread which becomes the entry for new allocations
 //PLANNED+  implement locking/stealing for clusters and main mpool
 
-/*
-  Implementation Notes: (braindump, planned features)
-
-  * Free elements are chained on linked lists
-  * Ranges of free elements are coalesced
-  * the first and last bit of any free range is set. These nodes are interpreted as firstfree/lastfree
-  * all other bits in the bitmap are cleared
- */
+//  Implementation Notes:
+//
+// * Free elements are chained on linked lists
+// * Ranges of free elements are coalesced
+// * the first and last bit of any free range is set. These nodes are interpreted as firstfree/lastfree
+//  * all other bits in the bitmap are cleared
 
 
 
