@@ -269,6 +269,47 @@ test3 (void)
   mpool_destroy (&testpool);
 }
 
+void
+test4 (void)
+{
+  MPOOL_MSG ("cluster freeing");
+  struct mpool testpool;
+  mpool_init (&testpool, 16, 512, NULL);
+
+  void* elementv[10000];
+  for (unsigned i = 0; i < 10000; ++i)
+  {
+    elementv[i] = NULL;
+  }
+
+  for (unsigned i = 0; i < 5000; ++i)
+  {
+    mpool_debug_check (&testpool);
+    elementv[i] = mpool_alloc (&testpool, NULL);
+  }
+
+  // shuffle
+  for (unsigned i = 0; i < 10000; ++i)
+  {
+    void* tmp = elementv[i];
+    unsigned r = rand() % 10000;
+
+    elementv[i] = elementv[r];
+    elementv[r] = tmp;
+  }
+
+  mpool_debug_check (&testpool);
+
+  for (unsigned i = 0; i < 10000; i++)
+  {
+    mpool_free (&testpool, &elementv[i]);
+  }
+
+  mpool_debug_check (&testpool);
+
+  mpool_destroy (&testpool);
+}
+
 
 int
 main (int argc, char* argv[])
@@ -281,6 +322,7 @@ main (int argc, char* argv[])
   test1 ();
   test2 ();
   test3 ();
+  test4 ();
 
   MPOOL_MSG("tests done");
   return 0;

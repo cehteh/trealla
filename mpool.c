@@ -185,6 +185,7 @@ mpool_init (MPool self, size_t elem_size, size_t elements_per_cluster, mpool_des
         MPOOL_BITMAP_SIZE (self->elements_per_cluster) +        /* bitmap */
         self->elem_size * self->elements_per_cluster;           /* elements */
 
+      self->linger_cluster = NULL;
       self->elements_free = 0;
       self->clusters_allocated = 0;
       self->destroy = dtor;
@@ -308,7 +309,6 @@ mpool_cfree (MPool self, void** element, size_t n)
 {
   if (self && element && *element)
     {
-      //TODO: if cluster becomes free then if(free_cluster)free(free_cluster); free_cluster = cluster;
       MPoolcluster cluster = mpool_get_cluster (self, *element);
       MPOOL_ASSERT(cluster); // address not in pool
 
@@ -381,6 +381,26 @@ mpool_cfree (MPool self, void** element, size_t n)
 
       self->elements_free += n;
       *element = NULL;
+
+      if (chunksize == self->elements_per_cluster)
+        {
+          if (self->linger_cluster && cluster_get_bit(self->linger_cluster, 0))
+            {
+              MPoolnode maybefree = (MPoolnode)cluster_get_element (self->linger_cluster, self, 0);
+              if (maybefree->firstfree.nelements == self->elements_per_cluster)
+                {
+                  MPOOL_MSG("freeing cluster %p", self->linger_cluster);
+                  llist_unlink_fast_ (&maybefree->firstfree.node);
+                  llist_unlink_fast_ (&self->linger_cluster->node);
+#ifdef MPOOL_MALLOC_HOOKS
+                  self->free_hook (self->linger_cluster);
+#else
+                  free (self->linger_cluster);
+#endif
+                }
+            }
+          self->linger_cluster = cluster;
+        }
     }
 }
 
@@ -395,7 +415,7 @@ mpool_free (MPool self, void** element)
 MPool
 mpool_reserve (MPool self, size_t nelements)
 {
-  //TODO: interaction with self->free_cluster
+  //TODO: interaction with self->linger_cluster
   if (self)
     while (self->elements_free < nelements)
       if (!mpool_cluster_alloc (self))
@@ -433,6 +453,8 @@ mpool_cluster_alloc (MPool self)
 #else
   MPoolcluster cluster = malloc (self->cluster_size);
 #endif
+
+  MPOOL_MSG ("allocated cluster %p", cluster);
 
   if (!cluster)
     return NULL;

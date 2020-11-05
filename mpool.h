@@ -74,13 +74,13 @@ typedef void (*mpool_destroy_fn)(void* self);
 //:
 //: Handle to a mpool. The struct mpool is exposed, but should only be used readonly for querying attributes
 typedef struct mpool* MPool;
+typedef struct mpoolcluster* MPoolcluster;
 
 struct mpool
 {
   struct llist freelists[MPOOL_BUCKETS];
   struct llist clusters;
-  //PLANNED: MPoolcluster free_cluster; when a cluster becomes completely unused its cached here, and (if exists) the previous cached cluster gets really freed
-  //PLANNED+  this keeps one free cluster lingering
+  MPoolcluster linger_cluster; // when a cluster becomes completely unused its cached here
   size_t elem_size;
   size_t elements_per_cluster;
   size_t cluster_size;
