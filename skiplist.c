@@ -113,7 +113,7 @@ void sl_destroy(skiplist *l)
 	}
 
 #ifdef MPOOL
-        mpool_free (&sl_pool_, (void**)&l);
+        mpool_free (&sl_pool_, l);
 #else
 	free(l);
 #endif

@@ -305,18 +305,18 @@ mpool_alloc (MPool self, void* near)
 
 
 void
-mpool_cfree (MPool self, void** element, size_t n)
+mpool_cfree (MPool self, void* element, size_t n)
 {
-  if (self && element && *element)
+  if (self && element)
     {
-      MPoolcluster cluster = mpool_get_cluster (self, *element);
+      MPoolcluster cluster = mpool_get_cluster (self, element);
       MPOOL_ASSERT(cluster); // address not in pool
 
-      size_t startindex = cluster_get_index (cluster, self, *element);
+      size_t startindex = cluster_get_index (cluster, self, element);
       size_t chunksize = n;
 
-      MPoolnode chunkstart = (MPoolnode)*element;
-      MPoolnode chunkend = (MPoolnode)((char*)*element + self->elem_size * (chunksize-1));
+      MPoolnode chunkstart = (MPoolnode)element;
+      MPoolnode chunkend = (MPoolnode)((char*)element + self->elem_size * (chunksize-1));
 
       llist_init (&chunkstart->firstfree.node);  // maybe unused when coalescing front
 
@@ -380,7 +380,6 @@ mpool_cfree (MPool self, void** element, size_t n)
       mpool_freellist_insert (self, chunkstart);
 
       self->elements_free += n;
-      *element = NULL;
 
       if (chunksize == self->elements_per_cluster)
         {
@@ -405,7 +404,7 @@ mpool_cfree (MPool self, void** element, size_t n)
 }
 
 void
-mpool_free (MPool self, void** element)
+mpool_free (MPool self, void* element)
 {
   mpool_cfree (self, element, 1);
 }
