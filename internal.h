@@ -84,16 +84,16 @@ typedef uint32_t idx_t;
 // Derived type...
 
 #define is_iso_atom(c) ((is_literal(c) || is_cstring(c)) && !(c)->arity)
-#define is_iso_list(c) (is_literal(c) && ((c)->arity == 2) && ((c)->val_off == g_dot_s))
+#define is_iso_list(c) (is_literal(c) && ((c)->arity == 2) && ((c)->LITERAL.val_off == g_dot_s))
 
 #define is_atom(c) ((is_literal(c) && !(c)->arity) || is_cstring(c))
 #define is_string(c) (is_cstring(c) && (c)->flags&FLAG_STRING)
 #define is_blob(c) (is_cstring(c) && ((c)->flags&FLAG_BLOB))
 #define is_list(c) (is_iso_list(c) || is_string(c))
-#define is_integer(c) (is_rational(c) && ((c)->val_den == 1))
+#define is_integer(c) (is_rational(c) && ((c)->INTEGER.val_den == 1))
 #define is_const_cstring(c) (is_cstring(c) && ((c)->flags & FLAG_CONST_CSTRING))
 #define is_dup_cstring(c) (is_cstring(c) && ((c)->flags & FLAG_DUP_CSTRING))
-#define is_nil(c) (is_literal(c) && !(c)->arity && ((c)->val_off == g_nil_s))
+#define is_nil(c) (is_literal(c) && !(c)->arity && ((c)->LITERAL.val_off == g_nil_s))
 #define is_quoted(c) ((c)->flags & FLAG_QUOTED)
 #define is_fresh(c) ((c)->flags & FLAG_FRESH)
 #define is_anon(c) ((c)->flags & FLAG_ANON)
@@ -101,8 +101,8 @@ typedef uint32_t idx_t;
 
 // These 2 assume literal or cstring types...
 
-#define GET_STR(c) ((c)->val_type != TYPE_CSTRING ? (g_pool+(c)->val_off) : (c)->flags&FLAG_BLOB ? (c)->val_str : (c)->val_chr)
-#define LEN_STR(c) ((c)->flags&FLAG_BLOB ? (c)->len_str : strlen(GET_STR(c)))
+#define GET_STR(c) ((c)->val_type != TYPE_CSTRING ? (g_pool+(c)->LITERAL.val_off) : (c)->flags&FLAG_BLOB ? (c)->CSTRING.val_str : (c)->SMALLSTRING.val_chr)
+#define LEN_STR(c) ((c)->flags&FLAG_BLOB ? (c)->CSTRING.len_str : strlen(GET_STR(c)))
 
 // Wrap an assignment that's expected to return anything but the given sentinel value.
 // when the sentinel otherwise does some (optional) error handling action
@@ -189,46 +189,48 @@ struct cell_ {
 		struct {
 			int_t val_num;
 			int_t val_den;
-		};
+		}INTEGER;
 
 		struct {
 			double val_flt;
-		};
-
-		struct {
-			char val_chr[MAX_SMALL_STRING];
-		};
+		}FLOAT;
 
 		struct {
 			cell *val_ptr;
-		};
+		}INDIRECT;
 
 #if USE_GMP
 		struct {
 			mpz_t val_mpz;
-		};
+		}BIGNUM;
 #endif
+
+		struct {
+			char val_chr[MAX_SMALL_STRING];
+		}SMALLSTRING;
 
 		struct {
 			char *val_str;
 			size_t len_str;
-		};
+		}CSTRING;
 
 		struct {
-			union {
+			union { //TODO: cehteh: remove this union, split into subtypes
 				int (*fn)(query*);
 				rule *match;
-				cell *attrs;
 				uint16_t precedence;
 			};
 
 			idx_t val_off;
 
-			union {
-				idx_t var_nbr;			// used with TYPE_VAR
-				idx_t cgen;				// used with cuts
-			};
-		};
+			idx_t cgen;				// used with cuts
+		}LITERAL;
+
+		struct {
+			cell *attrs;
+			idx_t val_off;
+			idx_t var_nbr;
+		}VARIABLE;
 	};
 };
 
