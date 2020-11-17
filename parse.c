@@ -254,7 +254,7 @@ cell *list_head(cell *l)
 	if (!is_string(l))
 		return l + 1;
 
-	size_t n = len_char_utf8(l->val_str);
+	size_t n = len_char_utf8(l->CSTRING.val_str);
 
 	if (!n)
 		n = 1;
@@ -264,8 +264,8 @@ cell *list_head(cell *l)
 	tmp.nbr_cells = 1;
 	tmp.flags = 0;
 	tmp.arity = 0;
-	memcpy(tmp.val_chr, l->val_str, n);
-	tmp.val_chr[n] = '\0';
+	memcpy(tmp.SMALLSTRING.val_chr, l->CSTRING.val_str, n);
+	tmp.SMALLSTRING.val_chr[n] = '\0';
 	return &tmp;
 }
 
@@ -279,18 +279,19 @@ cell *list_tail(cell *l, cell *tmp)
 		return h + h->nbr_cells;
 	}
 
-	size_t n = len_char_utf8(l->val_str);
+	size_t n = len_char_utf8(l->CSTRING.val_str);
 
 	if (!n)
 		n = 1;
 
-	if ((l->len_str - n) != 0) {
+	if ((l->CSTRING.len_str - n) != 0) {
 		tmp->val_type = TYPE_CSTRING;
 		tmp->flags = FLAG_BLOB|FLAG_CONST_CSTRING|FLAG_STRING;
 		tmp->nbr_cells = 1;
 		tmp->arity = 2;
-		tmp->val_str = l->val_str + n;
-		tmp->len_str = l->len_str - n;
+		tmp->CSTRING.val_str = l->CSTRING.val_str + n;
+		tmp->CSTRING.len_str = l->CSTRING.len_str - n;
+		tmp->LITERAL.match = NULL;
 		return tmp;
 	}
 
@@ -298,7 +299,8 @@ cell *list_tail(cell *l, cell *tmp)
 	tmp->nbr_cells = 1;
 	tmp->arity = 0;
 	tmp->flags = 0;
-	tmp->val_off = g_nil_s;
+	tmp->LITERAL.match = NULL;
+	tmp->LITERAL.val_off = g_nil_s;
 	return tmp;
 }
 
@@ -329,7 +331,7 @@ cell *get_head(cell *c)
 	if (!is_literal(c))
 		return NULL;
 
-	if (c->val_off != g_clause_s)
+	if (c->LITERAL.val_off != g_clause_s)
 		return c;
 
 	return c + 1;
@@ -342,7 +344,7 @@ cell *get_body(cell *c)
 	if (!is_literal(c))
 		return NULL;
 
-	if (c->val_off != g_clause_s)
+	if (c->LITERAL.val_off != g_clause_s)
 		return NULL;
 
 	c = c + 1;
@@ -364,7 +366,7 @@ static rule *find_rule(module *m, cell *c)
 			continue;
 
 		if (is_literal(c)) {
-			if ((h->val_off == c->val_off) && (h->arity == c->arity))
+			if ((h->val_off == c->LITERAL.val_off) && (h->arity == c->arity))
 				return h;
 		} else {
 			if (!strcmp(g_pool+h->val_off, GET_STR(c)) && !h->arity)
@@ -455,7 +457,7 @@ static rule *create_rule(module *m, cell *c)
 
 	rule *h = get_rule(m);
 	if (!h) return NULL;
-	h->val_off = c->val_off;
+	h->val_off = c->LITERAL.val_off;
 	h->arity = c->arity;
 	return h;
 }
@@ -467,8 +469,8 @@ void set_multifile_in_db(module *m, const char *name, idx_t arity)
 
 	cell tmp;
 	tmp.val_type = TYPE_LITERAL;
-	tmp.val_off = index_from_pool(name);
-	ensure(tmp.val_off != ERR_IDX);
+	tmp.LITERAL.val_off = index_from_pool(name);
+	ensure(tmp.LITERAL.val_off != ERR_IDX);
 	tmp.arity = arity;
 	rule *h = find_rule(m, &tmp);
 	if (!h) h = create_rule(m, &tmp);
@@ -486,8 +488,8 @@ static bool is_multifile_in_db(const char *mod, const char *name, idx_t arity)
 	if (!m) return false;
 	cell tmp;
 	tmp.val_type = TYPE_LITERAL;
-	tmp.val_off = index_from_pool(name);
-	if (tmp.val_off == ERR_IDX) return false;
+	tmp.LITERAL.val_off = index_from_pool(name);
+	if (tmp.LITERAL.val_off == ERR_IDX) return false;
 
 	tmp.arity = arity;
 	rule *h = find_rule(m, &tmp);
@@ -503,14 +505,14 @@ static int compkey(const void *ptr1, const void *ptr2)
 	const cell *p2 = (const cell*)ptr2;
 
 	if (is_integer(p1) && is_integer(p2)) {
-		if (p1->val_num < p2->val_num)
+		if (p1->INTEGER.val_num < p2->INTEGER.val_num)
 			return -1;
-		else if (p1->val_num > p2->val_num)
+		else if (p1->INTEGER.val_num > p2->INTEGER.val_num)
 			return 1;
 	} else if (is_float(p1) && is_float(p2)) {
-		if (p1->val_flt < p2->val_flt)
+		if (p1->FLOAT.val_flt < p2->FLOAT.val_flt)
 			return -1;
-		else if (p1->val_flt > p2->val_flt)
+		else if (p1->FLOAT.val_flt > p2->FLOAT.val_flt)
 			return 1;
 	} else if (is_atom(p1) && is_atom(p2)) {
 		return strcmp(GET_STR(p1), GET_STR(p2));
@@ -564,9 +566,9 @@ static clause* assert_begin(module *m, term *t, bool consulting)
 	if (is_cstring(t->cells)) {
 		cell *c = t->cells;
 		idx_t off = index_from_pool(GET_STR(c));
-		if (is_blob(c) && !is_const_cstring(c)) free(c->val_str);
-		c->val_off = off;
-		ensure (c->val_off != ERR_IDX);
+		if (is_blob(c) && !is_const_cstring(c)) free(c->CSTRING.val_str);
+		c->LITERAL.val_off = off;
+		ensure (c->LITERAL.val_off != ERR_IDX);
 		c->val_type = TYPE_LITERAL;
 		c->flags = 0;
 	}
@@ -582,8 +584,8 @@ static clause* assert_begin(module *m, term *t, bool consulting)
 		idx_t off = index_from_pool(GET_STR(c));
 		if(off == ERR_IDX)
 			return NULL;
-		if (is_blob(c) && !is_const_cstring(c)) free(c->val_str);
-		c->val_off = off;
+		if (is_blob(c) && !is_const_cstring(c)) free(c->CSTRING.val_str);
+		c->LITERAL.val_off = off;
 		c->val_type = TYPE_LITERAL;
 		c->flags = 0;
 	}
@@ -763,8 +765,8 @@ void set_dynamic_in_db(module *m, const char *name, unsigned arity)
 
 	cell tmp;
 	tmp.val_type = TYPE_LITERAL;
-	tmp.val_off = index_from_pool(name);
-	ensure(tmp.val_off != ERR_IDX);
+	tmp.LITERAL.val_off = index_from_pool(name);
+	ensure(tmp.LITERAL.val_off != ERR_IDX);
 	tmp.arity = arity;
 	rule *h = find_rule(m, &tmp);
 	if (!h) h = create_rule(m, &tmp);
@@ -784,8 +786,8 @@ static void set_persist_in_db(module *m, const char *name, unsigned arity)
 {
 	cell tmp;
 	tmp.val_type = TYPE_LITERAL;
-	tmp.val_off = index_from_pool(name);
-	ensure(tmp.val_off == ERR_IDX);
+	tmp.LITERAL.val_off = index_from_pool(name);
+	ensure(tmp.LITERAL.val_off == ERR_IDX);
 	tmp.arity = arity;
 	rule *h = find_rule(m, &tmp);
 	if (!h) h = create_rule(m, &tmp);
@@ -812,7 +814,7 @@ void clear_term_nodelete(term *t)
 	for (idx_t i = 0; i < t->cidx; i++) {
 		cell *c = t->cells + i;
 		c->val_type = TYPE_EMPTY;
-		c->val_str = NULL;
+		c->CSTRING.val_str = NULL;
 	}
 
 	t->cidx = 0;
@@ -827,10 +829,10 @@ void clear_term(term *t)
 		cell *c = t->cells + i;
 
 		if (is_blob(c) && !is_dup_cstring(c))
-			free(c->val_str);
+			free(c->CSTRING.val_str);
 
 		c->val_type = TYPE_EMPTY;
-		c->val_str = NULL;
+		c->CSTRING.val_str = NULL;
 	}
 
 	t->cidx = 0;
@@ -915,9 +917,9 @@ void destroy_query(query *q)
 			cell *c = a->heap + i;
 
 			if (is_blob(c) && !is_const_cstring(c))
-				free(c->val_str);
+				free(c->CSTRING.val_str);
 			else if (is_integer(c) && ((c)->flags&FLAG_STREAM)) {
-				stream *str = &g_streams[c->val_num];
+				stream *str = &g_streams[c->INTEGER.val_num];
 
 				if (str->fp) {
 					fclose(str->fp);
@@ -951,6 +953,7 @@ query *create_query(module *m, int is_task)
 
 	query *q = calloc(1, sizeof(query));
 	if (q) {
+		//PLANNED: for mpool *q = (query){0};
 		q->qid = g_query_id++;
 		q->m = m;
 		q->trace = m->trace;
@@ -1012,8 +1015,8 @@ query *create_task(query *q, cell *curr_cell)
 			cell *c = deref(q, &e->c, e->ctx);
 			cell tmp = {0};
 			tmp.val_type = TYPE_VARIABLE;
-			tmp.var_nbr = i;
-			tmp.val_off = g_anon_s;
+			tmp.VARIABLE.var_nbr = i;
+			tmp.VARIABLE.var_off = g_anon_s;
 			set_var(subq, &tmp, 0, c, q->latest_ctx);
 		}
 
@@ -1037,7 +1040,7 @@ static void dump_vars(query *q, parser *p)
 		cell *c;
 
 		if (is_indirect(&e->c)) {
-			c = e->c.val_ptr;
+			c = e->c.INDIRECT.val_ptr;
 			q->latest_ctx = e->ctx;
 		} else
 			c = deref(q, &e->c, e->ctx);
@@ -1138,7 +1141,7 @@ static void directives(parser *p, term *t)
 				if (!is_literal(f)) return;
 				if (!is_integer(a)) return;
 				cell tmp = *f;
-				tmp.arity = a->val_num;
+				tmp.arity = a->INTEGER.val_num;
 
 				if (!strcmp(GET_STR(head), "//"))
 					tmp.arity += 2;
@@ -1233,7 +1236,7 @@ static void directives(parser *p, term *t)
 				if (!is_atom(c_name)) return;
 				cell *c_arity = p1 + 2;
 				if (!is_integer(c_arity)) return;
-				set_dynamic_in_db(p->m, GET_STR(c_name), c_arity->val_num);
+				set_dynamic_in_db(p->m, GET_STR(c_name), c_arity->INTEGER.val_num);
 				p1 += p1->nbr_cells;
 			} else if (!strcmp(GET_STR(p1), ","))
 				p1 += 1;
@@ -1252,7 +1255,7 @@ static void directives(parser *p, term *t)
 				cell *c_arity = p1 + 2;
 				if (!is_integer(c_arity)) return;
 				const char *src = GET_STR(c_name);
-				unsigned arity = c_arity->val_num;
+				unsigned arity = c_arity->INTEGER.val_num;
 
 				if (!strcmp(GET_STR(p1), "//"))
 					arity += 2;
@@ -1294,7 +1297,7 @@ static void directives(parser *p, term *t)
 				if (!is_atom(c_name)) return;
 				cell *c_arity = p1 + 2;
 				if (!is_integer(c_arity)) return;
-				set_persist_in_db(p->m, GET_STR(c_name), c_arity->val_num);
+				set_persist_in_db(p->m, GET_STR(c_name), c_arity->INTEGER.val_num);
 				if (p->m->error) {
 					p->error = true;
 					return;
@@ -1380,7 +1383,7 @@ static void directives(parser *p, term *t)
 			return;
 		}
 
-		if (!set_op(p->m, GET_STR(p3), optype, p1->val_num)) {
+		if (!set_op(p->m, GET_STR(p3), optype, p1->INTEGER.val_num)) {
 			fprintf(stdout, "Error: could not set op\n");
 			return;
 		}
@@ -1410,7 +1413,7 @@ void parser_xref(parser *p, term *t, rule *parent)
 			SET_OP(c, optype);
 		}
 
-		if ((c->fn = get_builtin(m, functor, c->arity)) != NULL) {
+		if ((c->LITERAL.fn = get_builtin(m, functor, c->arity)) != NULL) {
 			c->flags |= FLAG_BUILTIN;
 			continue;
 		}
@@ -1429,8 +1432,8 @@ void parser_xref(parser *p, term *t, rule *parent)
 
 			if (m)
 			{
-				c->val_off = index_from_pool(tmpbuf2);
-				ensure(c->val_off != ERR_IDX);
+				c->LITERAL.val_off = index_from_pool(tmpbuf2);
+				ensure(c->LITERAL.val_off != ERR_IDX);
 			}
 			else
 				m = p->m;
@@ -1454,7 +1457,7 @@ void parser_xref(parser *p, term *t, rule *parent)
 			}
 
 			if (h) {
-				c->match = h;
+				c->LITERAL.match = h;
 				break;
 			}
 
@@ -1552,22 +1555,22 @@ void parser_assign_vars(parser *p, unsigned start, bool rebase)
 
 		if (rebase) {
 			char tmpbuf[20];
-			snprintf(tmpbuf, sizeof(tmpbuf), "_V%u", c->var_nbr);
-			c->var_nbr = get_varno(p, tmpbuf);
+			snprintf(tmpbuf, sizeof(tmpbuf), "_V%u", c->VARIABLE.var_nbr);
+			c->VARIABLE.var_nbr = get_varno(p, tmpbuf);
 		} else
-			c->var_nbr = get_varno(p, GET_STR(c));
+			c->VARIABLE.var_nbr = get_varno(p, GET_STR(c));
 
-		c->var_nbr += start;
+		c->VARIABLE.var_nbr += start;
 
-		if (c->var_nbr == MAX_ARITY) {
+		if (c->VARIABLE.var_nbr == MAX_ARITY) {
 			fprintf(stdout, "Error: max vars per term reached\n");
 			p->error = true;
 			return;
 		}
 
-		p->vartab.var_name[c->var_nbr] = GET_STR(c);
+		p->vartab.var_name[c->VARIABLE.var_nbr] = GET_STR(c);
 
-		if (p->vartab.var_used[c->var_nbr]++ == 0) {
+		if (p->vartab.var_used[c->VARIABLE.var_nbr]++ == 0) {
 			c->flags |= FLAG_FIRST_USE;
 			t->nbr_vars++;
 			p->nbr_vars++;
@@ -1589,14 +1592,14 @@ void parser_assign_vars(parser *p, unsigned start, bool rebase)
 		if (!is_variable(c))
 			continue;
 
-		if (c->val_off == g_anon_s)
+		if (c->VARIABLE.var_off == g_anon_s)
 			c->flags |= FLAG_ANON;
 	}
 
 
 	cell *c = make_cell(p);
 	ensure(c);
-	memset(c, 0, sizeof(cell)); //cehteh: make_cell should return a initialized cell?
+	//memset(c, 0, sizeof(cell)); //cehteh: make_cell should return a initialized cell?
 	c->val_type = TYPE_END;
 	c->nbr_cells = 1;
 
@@ -1621,20 +1624,20 @@ static bool attach_ops(parser *p, idx_t start_idx)
 			continue;
 		}
 
-		if (!is_literal(c) || !c->precedence) {
+		if (!is_literal(c) || !c->LITERAL.precedence) {
 			i++;
 			continue;
 		}
 
 		if (IS_XFY(c) || IS_FY(c)) {
-			if (c->precedence <= lowest) {
-				lowest = c->precedence;
+			if (c->LITERAL.precedence <= lowest) {
+				lowest = c->LITERAL.precedence;
 				work_idx = i;
 				do_work = true;
 			}
 		} else {
-			if (c->precedence < lowest) {
-				lowest = c->precedence;
+			if (c->LITERAL.precedence < lowest) {
+				lowest = c->LITERAL.precedence;
 				work_idx = i;
 				do_work = true;
 			}
@@ -1657,13 +1660,13 @@ static bool attach_ops(parser *p, idx_t start_idx)
 			continue;
 		}
 
-		if (!is_literal(c) || !c->precedence) {
+		if (!is_literal(c) || !c->LITERAL.precedence) {
 			last_idx = i;
 			i++;
 			continue;
 		}
 
-		if ((c->precedence != lowest) || (i != work_idx)) {
+		if ((c->LITERAL.precedence != lowest) || (i != work_idx)) {
 			last_idx = i;
 			i++;
 			continue;
@@ -1783,7 +1786,7 @@ static void parser_dcg_rewrite(parser *p)
 		cell *c;
 
 		if (is_indirect(&e->c)) {
-			c = e->c.val_ptr;
+			c = e->c.INDIRECT.val_ptr;
 			q->latest_ctx = e->ctx;
 		} else
 			c = deref(q, &e->c, e->ctx);
@@ -1835,10 +1838,10 @@ static cell *make_literal(parser *p, idx_t offset)
 		return NULL;
 
 	cell *c = make_cell(p);
-	memset(c, 0, sizeof(cell));
+	//memset(c, 0, sizeof(cell));
 	c->val_type = TYPE_LITERAL;
 	c->nbr_cells = 1;
-	c->val_off = offset;
+	c->LITERAL.val_off = offset;
 	return c;
 }
 
@@ -2006,11 +2009,11 @@ static int parse_number(parser *p, const char **srcptr, int_t *val_num, int_t *v
 	*((uint_t*)val_den) = v;
 
 	cell tmp;
-	tmp.val_num = *val_num;
-	tmp.val_den = *val_den;
+	tmp.INTEGER.val_num = *val_num;
+	tmp.INTEGER.val_den = *val_den;
 	do_reduce(&tmp);
-	*val_num = tmp.val_num;
-	*val_den = tmp.val_den;
+	*val_num = tmp.INTEGER.val_num;
+	*val_den = tmp.INTEGER.val_den;
 	*srcptr = s;
 	return 1;
 }
@@ -2495,7 +2498,7 @@ size_t scan_is_chars_list(query *q, cell *l, idx_t l_ctx, int tolerant)
 		}
 
 		if (is_integer(c)) {
-			int ch = c->val_num;
+			int ch = c->INTEGER.val_num;
 			char tmp[20];
 			put_char_utf8(tmp, ch);
 			size_t len = len_char_utf8(tmp);
@@ -2521,7 +2524,7 @@ size_t scan_is_chars_list(query *q, cell *l, idx_t l_ctx, int tolerant)
 		is_chars_list = 0;
 	else if (is_string(l))
 		;
-	else if (!is_literal(l) || (l->val_off != g_nil_s))
+	else if (!is_literal(l) || (l->LITERAL.val_off != g_nil_s))
 		is_chars_list = 0;
 
 	if (q) q->latest_ctx = save_ctx;
@@ -2729,15 +2732,15 @@ unsigned parser_tokenize(parser *p, int args, int consing)
 
 		p->start_term = false;
 		cell *c = make_cell(p);
-		memset(c, 0, sizeof(cell));
+		//memset(c, 0, sizeof(cell));
 		c->nbr_cells = 1;
 		c->val_type = p->val_type;
 		SET_OP(c,optype);
-		c->precedence = precedence;
+		c->LITERAL.precedence = precedence;
 
 		if (p->val_type == TYPE_INTEGER) {
 			const char *src = p->token;
-			parse_number(p, &src, &c->val_num, &c->val_den);
+			parse_number(p, &src, &c->INTEGER.val_num, &c->INTEGER.val_den);
 
 			if (strstr(p->token, "0o"))
 				c->flags |= FLAG_OCTAL;
@@ -2747,11 +2750,11 @@ unsigned parser_tokenize(parser *p, int args, int consing)
 				c->flags |= FLAG_BINARY;
 		}
 		else if (p->val_type == TYPE_FLOAT)
-			c->val_flt = atof(p->token);
+			c->FLOAT.val_flt = atof(p->token);
 		else if ((!p->was_quoted || func || p->is_op || p->is_variable ||
 				check_builtin(p->m, p->token, 0)) && !p->string) {
 			if (func && !strcmp(p->token, "."))
-				c->precedence = 0;
+				c->LITERAL.precedence = 0;
 
 			if (p->is_variable)
 				c->val_type = TYPE_VARIABLE;
@@ -2759,8 +2762,8 @@ unsigned parser_tokenize(parser *p, int args, int consing)
 			if (p->was_quoted)
 				c->flags |= FLAG_QUOTED;
 
-			c->val_off = index_from_pool(p->token);
-			ensure(c->val_off != ERR_IDX);
+			c->LITERAL.val_off = index_from_pool(p->token);
+			ensure(c->LITERAL.val_off != ERR_IDX);
 		} else {
 			c->val_type = TYPE_CSTRING;
 
@@ -2770,7 +2773,7 @@ unsigned parser_tokenize(parser *p, int args, int consing)
 			}
 
 			if ((strlen(p->token) < MAX_SMALL_STRING) && !p->string)
-				strcpy(c->val_chr, p->token);
+				strcpy(c->SMALLSTRING.val_chr, p->token);
 			else {
 				if (p->consulting || p->skip)
 					c->flags |= FLAG_CONST_CSTRING;
@@ -2778,14 +2781,14 @@ unsigned parser_tokenize(parser *p, int args, int consing)
 				c->flags |= FLAG_BLOB;
 
 				if (p->string) {
-					c->len_str = p->len_str;
-					c->val_str = malloc(p->len_str+1);
-					ensure(c->val_str);
-					memcpy(c->val_str, p->token, p->len_str);
-					c->val_str[p->len_str] = '\0';
+					c->CSTRING.len_str = p->len_str;
+					c->CSTRING.val_str = malloc(p->len_str+1);
+					ensure(c->CSTRING.val_str);
+					memcpy(c->CSTRING.val_str, p->token, p->len_str);
+					c->CSTRING.val_str[p->len_str] = '\0';
 				} else {
-					c->val_str = ensure_strdup(p->token);
-					c->len_str = strlen(p->token);
+					c->CSTRING.val_str = ensure_strdup(p->token);
+					c->CSTRING.len_str = strlen(p->token);
 				}
 			}
 		}

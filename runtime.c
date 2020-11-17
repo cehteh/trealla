@@ -157,7 +157,7 @@ static void check_slot(query *q, unsigned cnt)
 
 static void trace_call(query *q, cell *c, box_t box)
 {
-	if (!c->fn)
+	if (!c->LITERAL.fn)
 		return;
 
 	if (is_empty(c))
@@ -205,7 +205,7 @@ static void unwind_trail(query *q, const choice *ch)
 		const frame *g = GET_FRAME(tr->ctx);
 		slot *e = GET_SLOT(g, tr->var_nbr);
 		e->c.val_type = TYPE_EMPTY;
-		e->c.attrs = NULL;
+		e->c.VARIABLE.attrs = NULL;
 	}
 }
 
@@ -241,7 +241,7 @@ void try_me(const query *q, unsigned nbr_vars)
 
 	for (unsigned i = 0; i < nbr_vars; i++, e++) {
 		e->c.val_type = TYPE_EMPTY;
-		e->c.attrs = NULL;
+		e->c.VARIABLE.attrs = NULL;
 	}
 }
 
@@ -301,9 +301,9 @@ static void trim_heap(query *q, const choice *ch)
 			cell *c = a->heap + i;
 
 			if (is_blob(c) && !is_const_cstring(c)) {
-				free(c->val_str);
+				free(c->CSTRING.val_str);
 			} else if (is_integer(c) && ((c)->flags&FLAG_STREAM)) {
-				stream *str = &g_streams[c->val_num];
+				stream *str = &g_streams[c->INTEGER.val_num];
 
 				if (str->fp) {
 					fclose(str->fp);
@@ -316,7 +316,7 @@ static void trim_heap(query *q, const choice *ch)
 			}
 
 			c->val_type = TYPE_EMPTY;
-			c->attrs = NULL;
+			c->VARIABLE.attrs = NULL;
 		}
 
 		arena *save = a;
@@ -331,9 +331,9 @@ static void trim_heap(query *q, const choice *ch)
 		cell *c = a->heap + i;
 
 		if (is_blob(c) && !is_const_cstring(c)) {
-			free(c->val_str);
+			free(c->CSTRING.val_str);
 		} else if (is_integer(c) && ((c)->flags&FLAG_STREAM)) {
-			stream *str = &g_streams[c->val_num];
+			stream *str = &g_streams[c->INTEGER.val_num];
 
 			if (str->fp) {
 				fclose(str->fp);
@@ -346,7 +346,7 @@ static void trim_heap(query *q, const choice *ch)
 		}
 
 		c->val_type = TYPE_EMPTY;
-		c->attrs = NULL;
+		c->VARIABLE.attrs = NULL;
 	}
 }
 
@@ -422,7 +422,7 @@ static void reuse_frame(query *q, unsigned nbr_vars)
 			cell *c = &e->c;
 
 			if (is_string(c) && !is_const_cstring(c))
-				free(c->val_str);
+				free(c->CSTRING.val_str);
 		}
 
 		slot *from = GET_SLOT(new_g, 0);
@@ -541,7 +541,7 @@ void cut_me(query *q, bool local_cut)
 		q->cp--;
 
 		if ((ch->local_cut && local_cut) &&
-			(ch->cgen == q->st.curr_cell->cgen))
+			(ch->cgen == q->st.curr_cell->LITERAL.cgen))
 			break;
 	}
 
@@ -554,7 +554,7 @@ static void follow_me(query *q)
 	q->st.curr_cell += q->st.curr_cell->nbr_cells;
 
 	while (q->st.curr_cell && is_end(q->st.curr_cell))
-		q->st.curr_cell = q->st.curr_cell->val_ptr;
+		q->st.curr_cell = q->st.curr_cell->INDIRECT.val_ptr;
 }
 
 static bool resume_frame(query *q)
@@ -584,7 +584,7 @@ void make_indirect(cell *tmp, cell *c)
 	tmp->nbr_cells = 1;
 	tmp->arity = 0;
 	tmp->flags = 0;
-	tmp->val_ptr = c;
+	tmp->INDIRECT.val_ptr = c;
 }
 
 unsigned create_vars(query *q, unsigned cnt)
@@ -619,7 +619,7 @@ unsigned create_vars(query *q, unsigned cnt)
 	for (unsigned i = 0; i < cnt; i++) {
 		slot *e = GET_SLOT(g, g->nbr_vars+i);
 		e->c.val_type = TYPE_EMPTY;
-		e->c.attrs = NULL;
+		e->c.VARIABLE.attrs = NULL;
 	}
 
 	g->nbr_vars += cnt;
@@ -629,11 +629,11 @@ unsigned create_vars(query *q, unsigned cnt)
 void set_var(query *q, cell *c, idx_t c_ctx, cell *v, idx_t v_ctx)
 {
 	frame *g = GET_FRAME(c_ctx);
-	slot *e = GET_SLOT(g, c->var_nbr);
+	slot *e = GET_SLOT(g, c->VARIABLE.var_nbr);
 	cell *frozen = NULL;
 
-	if (is_empty(&e->c) && e->c.attrs && !is_list_or_nil(e->c.attrs))
-		frozen = e->c.attrs;
+	if (is_empty(&e->c) && e->c.VARIABLE.attrs && !is_list_or_nil(e->c.VARIABLE.attrs))
+		frozen = e->c.VARIABLE.attrs;
 
 	e->ctx = v_ctx;
 
@@ -650,20 +650,20 @@ void set_var(query *q, cell *c, idx_t c_ctx, cell *v, idx_t v_ctx)
 
 	check_trail(q);
 	trail *tr = q->trails + q->st.tp++;
-	tr->var_nbr = c->var_nbr;
+	tr->var_nbr = c->VARIABLE.var_nbr;
 	tr->ctx = c_ctx;
 }
 
 void reset_value(query *q, cell *c, idx_t c_ctx, cell *v, idx_t v_ctx)
 {
 	frame *g = GET_FRAME(c_ctx);
-	slot *e = GET_SLOT(g, c->var_nbr);
+	slot *e = GET_SLOT(g, c->VARIABLE.var_nbr);
 
 	while (is_variable(&e->c)) {
 		c = &e->c;
 		c_ctx = e->ctx;
 		g = GET_FRAME(c_ctx);
-		e = GET_SLOT(g, c->var_nbr);
+		e = GET_SLOT(g, c->VARIABLE.var_nbr);
 	}
 
 	e->ctx = v_ctx;
@@ -681,7 +681,7 @@ static bool unify_structure(query *q, cell *p1, idx_t p1_ctx, cell *p2, idx_t p2
 	if (p1->arity != p2->arity)
 		return false;
 
-	if (p1->val_off != p2->val_off)
+	if (p1->LITERAL.val_off != p2->LITERAL.val_off)
 		return false;
 
 	unsigned arity = p1->arity;
@@ -706,7 +706,7 @@ static bool unify_structure(query *q, cell *p1, idx_t p1_ctx, cell *p2, idx_t p2
 static bool unify_int(cell *p1, cell *p2)
 {
 	if (is_rational(p2))
-		return (p1->val_num == p2->val_num) && (p1->val_den == p2->val_den);
+		return (p1->INTEGER.val_num == p2->INTEGER.val_num) && (p1->INTEGER.val_den == p2->INTEGER.val_den);
 
 	return false;
 }
@@ -714,7 +714,7 @@ static bool unify_int(cell *p1, cell *p2)
 static bool unify_float(cell *p1, cell *p2)
 {
 	if (is_float(p2))
-		return p1->val_flt == p2->val_flt;
+		return p1->FLOAT.val_flt == p2->FLOAT.val_flt;
 
 	return false;
 }
@@ -722,10 +722,10 @@ static bool unify_float(cell *p1, cell *p2)
 static bool unify_literal(cell *p1, cell *p2)
 {
 	if (is_literal(p2))
-		return p1->val_off == p2->val_off;
+		return p1->LITERAL.val_off == p2->LITERAL.val_off;
 
 	if (is_cstring(p2) && (LEN_STR(p1) == LEN_STR(p2)))
-		return !memcmp(GET_STR(p2), g_pool+p1->val_off, LEN_STR(p1));
+		return !memcmp(GET_STR(p2), g_pool+p1->LITERAL.val_off, LEN_STR(p1));
 
 	return false;
 }
@@ -736,7 +736,7 @@ static bool unify_cstring(cell *p1, cell *p2)
 		return !memcmp(GET_STR(p1), GET_STR(p2), LEN_STR(p1));
 
 	if (is_literal(p2) && (LEN_STR(p1) == LEN_STR(p2)))
-		return !memcmp(GET_STR(p1), g_pool+p2->val_off, LEN_STR(p1));
+		return !memcmp(GET_STR(p1), g_pool+p2->LITERAL.val_off, LEN_STR(p1));
 
 	return false;
 }
@@ -799,7 +799,7 @@ bool unify_internal(query *q, cell *p1, idx_t p1_ctx, cell *p2, idx_t p2_ctx, un
 			set_var(q, p2, p2_ctx, p1, p1_ctx);
 		else if (p2_ctx < p1_ctx)
 			set_var(q, p1, p1_ctx, p2, p2_ctx);
-		else if (p2->var_nbr != p1->var_nbr)
+		else if (p2->VARIABLE.var_nbr != p1->VARIABLE.var_nbr)
 			set_var(q, p2, p2_ctx, p1, p1_ctx);
 		return true;
 	}
@@ -849,8 +849,8 @@ static bool match_full(query *q, cell *p1, idx_t p1_ctx)
 	rule *h = find_matching_rule(q->m, head);
 
 	if (!h) {
-		head->match = find_matching_rule(q->m, head);
-		h = head->match;
+		head->LITERAL.match = find_matching_rule(q->m, head);
+		h = head->LITERAL.match;
 	}
 
 	if (!h)
@@ -901,21 +901,21 @@ bool match_clause(query *q, cell *p1, idx_t p1_ctx)
 		rule *h;
 
 		if (is_literal(c))
-			h = c->match;
+			h = c->LITERAL.match;
 		else {
 			// For now convert it to a literal
 			idx_t off = index_from_pool(GET_STR(c));
-			if (is_blob(c) && !is_const_cstring(c)) free(c->val_str);
-			c->val_off = off;
-			ensure(c->val_off != ERR_IDX);
+			if (is_blob(c) && !is_const_cstring(c)) free(c->CSTRING.val_str);
+			c->LITERAL.val_off = off;
+			ensure(c->LITERAL.val_off != ERR_IDX);
 			c->val_type = TYPE_LITERAL;
 			c->flags = 0;
 			h = NULL;
 		}
 
 		if (!h) {
-			p1->match = find_matching_rule(q->m, p1);
-			h = p1->match;
+			p1->LITERAL.match = find_matching_rule(q->m, p1);
+			h = p1->LITERAL.match;
 		}
 
 		if (!h) {
@@ -984,24 +984,24 @@ static bool match_rule(query *q)
 		rule *h;
 
 		if (is_literal(c)) {
-			h = c->match;
+			h = c->LITERAL.match;
 		} else {
 			// For now convert it to a literal
-			c->val_off = index_from_pool(GET_STR(c));
-			if (c->val_off == ERR_IDX) {
+			c->LITERAL.val_off = index_from_pool(GET_STR(c));
+			if (c->LITERAL.val_off == ERR_IDX) {
 				q->error = true;
 				return false;
 			}
 
-			if (is_blob(c) && !is_const_cstring(c)) free(c->val_str);
+			if (is_blob(c) && !is_const_cstring(c)) free(c->CSTRING.val_str);
 			c->val_type = TYPE_LITERAL;
 			c->flags = 0;
 			h = NULL;
 		}
 
 		if (!h) {
-			c->match = find_matching_rule(q->m, c);
-			h = c->match;
+			c->LITERAL.match = find_matching_rule(q->m, c);
+			h = c->LITERAL.match;
 
 			if (!h) {
 				if (!is_end(c) && !(is_literal(c) && !strcmp(GET_STR(c), "initialization")))
@@ -1146,13 +1146,13 @@ void run_query(query *q)
 				}
 			}
 		} else {
-			if (!q->st.curr_cell->fn) {
+			if (!q->st.curr_cell->LITERAL.fn) {
 				q->tot_goals--;
 				q->st.curr_cell++;					// NO-OP
 				continue;
 			}
 
-			if (!q->st.curr_cell->fn(q)) {
+			if (!q->st.curr_cell->LITERAL.fn(q)) {
 				q->retry = 1;
 
 				if (q->yielded)

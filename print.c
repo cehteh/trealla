@@ -163,7 +163,7 @@ static int find_binding(query *q, idx_t var_nbr, idx_t var_ctx)
 		if (e->ctx != var_ctx)
 			continue;
 
-		if (e->c.var_nbr == var_nbr)
+		if (e->c.VARIABLE.var_nbr == var_nbr)
 			return i;
 	}
 
@@ -198,40 +198,40 @@ size_t print_canonical_to_buf(query *q, char *dst, size_t dstlen, cell *c, idx_t
 
 	if (is_rational(c)) {
 		if (((c->flags & FLAG_HEX) || (c->flags & FLAG_BINARY))) {
-			dst += snprintf(dst, dstlen, "%s0x", c->val_num<0?"-":"");
-			dst += sprint_int(dst, dstlen, c->val_num, 16);
+			dst += snprintf(dst, dstlen, "%s0x", c->INTEGER.val_num<0?"-":"");
+			dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 16);
 		} else if ((c->flags & FLAG_OCTAL) && !running) {
-			dst += snprintf(dst, dstlen, "%s0o", c->val_num<0?"-":"");
-			dst += sprint_int(dst, dstlen, c->val_num, 8);
-		} else if (c->val_den != 1) {
+			dst += snprintf(dst, dstlen, "%s0o", c->INTEGER.val_num<0?"-":"");
+			dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 8);
+		} else if (c->INTEGER.val_den != 1) {
 			if (q->m->flag.rational_syntax_natural) {
-				dst += sprint_int(dst, dstlen, c->val_num, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 10);
 				dst += snprintf(dst, dstlen, "%s", "/");
-				dst += sprint_int(dst, dstlen, c->val_den, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_den, 10);
 			} else {
-				dst += sprint_int(dst, dstlen, c->val_num, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 10);
 				dst += snprintf(dst, dstlen, "%s", " rdiv ");
-				dst += sprint_int(dst, dstlen, c->val_den, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_den, 10);
 			}
 		} else
-			dst += sprint_int(dst, dstlen, c->val_num, 10);
+			dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 10);
 
 		return dst - save_dst;
 	}
 
-	if (is_float(c) && (c->val_flt == M_PI)) {
+	if (is_float(c) && (c->FLOAT.val_flt == M_PI)) {
 		dst += snprintf(dst, dstlen, "%s", "3.141592653589793");
 		return dst - save_dst;
-	} else if (is_float(c) && (c->val_flt == M_E)) {
+	} else if (is_float(c) && (c->FLOAT.val_flt == M_E)) {
 		dst += snprintf(dst, dstlen, "%s", "2.718281828459045");
 		return dst - save_dst;
 	} else if (is_float(c)) {
 		char tmpbuf[256];
-		sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG, c->val_flt);
+		sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG, c->FLOAT.val_flt);
 		const char *ptr = strchr(tmpbuf, '.');
 
 		if (ptr && (strlen(ptr+1) > 1))
-			sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG, c->val_flt);
+			sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG, c->FLOAT.val_flt);
 
 		if (!strchr(tmpbuf, '.'))
 			strcat(tmpbuf, ".0");
@@ -242,12 +242,12 @@ size_t print_canonical_to_buf(query *q, char *dst, size_t dstlen, cell *c, idx_t
 
 	int var_nbr = 0;
 
-	if (is_variable(c) && (running>0) && (q->nv_start >= 0) && ((var_nbr = find_binding(q, c->var_nbr, c_ctx)) != -1)) {
+	if (is_variable(c) && (running>0) && (q->nv_start >= 0) && ((var_nbr = find_binding(q, c->VARIABLE.var_nbr, c_ctx)) != -1)) {
 		dst += snprintf(dst, dstlen, "'$VAR'(%u)", q->nv_start + count_bits(q->nv_mask, var_nbr));
 		return dst - save_dst;
 	}
 
-	if (is_variable(c) && (running>0) && (q->nv_start == -1) && ((var_nbr = find_binding(q, c->var_nbr, c_ctx)) != -1)) {
+	if (is_variable(c) && (running>0) && (q->nv_start == -1) && ((var_nbr = find_binding(q, c->VARIABLE.var_nbr, c_ctx)) != -1)) {
 		for (unsigned i = 0; i < MAX_ARITY; i++) {
 			if (q->nv_mask[i])
 				break;
@@ -284,7 +284,7 @@ size_t print_canonical_to_buf(query *q, char *dst, size_t dstlen, cell *c, idx_t
 
 	if (is_variable(c) && (running>0)) {
 		frame *g = GET_FRAME(c_ctx);
-		slot *e = GET_SLOT(g, c->var_nbr);
+		slot *e = GET_SLOT(g, c->VARIABLE.var_nbr);
 		idx_t slot_nbr = e - q->slots;
 		dst += snprintf(dst, dstlen, "_%u", (unsigned)slot_nbr);
 		return dst - save_dst;
@@ -360,18 +360,18 @@ size_t print_term_to_buf(query *q, char *dst, size_t dstlen, cell *c, idx_t c_ct
 	}
 
 	if (is_rational(c)) {
-		if (c->val_den != 1) {
+		if (c->INTEGER.val_den != 1) {
 			if (q->m->flag.rational_syntax_natural) {
-				dst += sprint_int(dst, dstlen, c->val_num, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 10);
 				dst += snprintf(dst, dstlen, "/");
-				dst += sprint_int(dst, dstlen, c->val_den, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_den, 10);
 			} else {
-				dst += sprint_int(dst, dstlen, c->val_num, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 10);
 				dst += snprintf(dst, dstlen, " rdiv ");
-				dst += sprint_int(dst, dstlen, c->val_den, 10);
+				dst += sprint_int(dst, dstlen, c->INTEGER.val_den, 10);
 			}
 		} else
-			dst += sprint_int(dst, dstlen, c->val_num, 10);
+			dst += sprint_int(dst, dstlen, c->INTEGER.val_num, 10);
 
 		return dst - save_dst;
 	}
@@ -383,19 +383,19 @@ size_t print_term_to_buf(query *q, char *dst, size_t dstlen, cell *c, idx_t c_ct
 	}
 #endif
 
-	if (is_float(c) && (c->val_flt == M_PI)) {
+	if (is_float(c) && (c->FLOAT.val_flt == M_PI)) {
 		dst += snprintf(dst, dstlen, "%s", "3.141592653589793");
 		return dst - save_dst;
-	} else if (is_float(c) && (c->val_flt == M_E)) {
+	} else if (is_float(c) && (c->FLOAT.val_flt == M_E)) {
 		dst += snprintf(dst, dstlen, "%s", "2.718281828459045");
 		return dst - save_dst;
 	} else if (is_float(c)) {
 		char tmpbuf[256];
-		sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG-1, c->val_flt);
+		sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG-1, c->FLOAT.val_flt);
 		const char *ptr = strchr(tmpbuf, '.');
 
 		if (ptr && (strlen(ptr+1) > 1))
-			sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG, c->val_flt);
+			sprintf(tmpbuf, "%.*g", DBL_DECIMAL_DIG, c->FLOAT.val_flt);
 
 		if (!strchr(tmpbuf, '.'))
 			strcat(tmpbuf, ".0");
@@ -507,15 +507,15 @@ size_t print_term_to_buf(query *q, char *dst, size_t dstlen, cell *c, idx_t c_ct
 		if (parens)
 			dst += snprintf(dst, dstlen, "%s", "(");
 
-		if (running && is_variable(c) && q->nv_mask[c->var_nbr]) {
-			dst += snprintf(dst, dstlen, "%s", varformat(q->nv_start + count_bits(q->nv_mask, c->var_nbr)));
+		if (running && is_variable(c) && q->nv_mask[c->VARIABLE.var_nbr]) {
+			dst += snprintf(dst, dstlen, "%s", varformat(q->nv_start + count_bits(q->nv_mask, c->VARIABLE.var_nbr)));
 			return dst - save_dst;
 		}
 
 		if (running && is_variable(c)
 			/*&& ((c_ctx != q->st.curr_frame) || is_fresh(c) || (running > 0))*/) {
 			frame *g = GET_FRAME(c_ctx);
-			slot *e = GET_SLOT(g, c->var_nbr);
+			slot *e = GET_SLOT(g, c->VARIABLE.var_nbr);
 			idx_t slot_nbr = e - q->slots;
 			dst += snprintf(dst, dstlen, "_%u", (unsigned)slot_nbr);
 			return dst - save_dst;
@@ -584,7 +584,7 @@ size_t print_term_to_buf(query *q, char *dst, size_t dstlen, cell *c, idx_t c_ct
 		rhs = running ? deref(q, rhs, c_ctx) : rhs;
 		idx_t rhs_ctx = q->latest_ctx;
 		int space = isalpha_utf8(peek_char_utf8(src)) || !strcmp(src, ":-") || !strcmp(src, "\\+");
-		space += !strcmp(src, "-") && is_rational(rhs) && (rhs->val_num < 0);
+		space += !strcmp(src, "-") && is_rational(rhs) && (rhs->INTEGER.val_num < 0);
 		int parens = is_structure(rhs) && !strcmp(GET_STR(rhs), ",");
 		dst += snprintf(dst, dstlen, "%s", src);
 		if (space && !parens) dst += snprintf(dst, dstlen, "%s", " ");

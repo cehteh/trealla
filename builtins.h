@@ -43,13 +43,13 @@
 inline static cell *deref_var(query *q, cell *c, idx_t c_ctx)
 {
 	const frame *g = GET_FRAME(c_ctx);
-	slot *e = GET_SLOT(g, c->var_nbr);
+	slot *e = GET_SLOT(g, c->VARIABLE.var_nbr);
 
 	while (is_variable(&e->c)) {
 		c_ctx = e->ctx;
 		c = &e->c;
 		g = GET_FRAME(c_ctx);
-		e = GET_SLOT(g, c->var_nbr);
+		e = GET_SLOT(g, c->VARIABLE.var_nbr);
 	}
 
 	if (is_empty(&e->c))
@@ -58,7 +58,7 @@ inline static cell *deref_var(query *q, cell *c, idx_t c_ctx)
 	if (!is_indirect(&e->c))
 		return &e->c;
 
-	return (q->latest_ctx=e->ctx, e->c.val_ptr);
+	return (q->latest_ctx=e->ctx, e->c.INDIRECT.val_ptr);
 }
 
 #define deref(q,c,c_ctx) !is_variable(c) ? (q->latest_ctx = c_ctx, c) : deref_var(q,c,c_ctx)
@@ -66,7 +66,7 @@ inline static cell *deref_var(query *q, cell *c, idx_t c_ctx)
 #define GET_FIRST_ARG(p,val_type) \
 	__attribute__((unused)) cell *p = get_first_arg(q); \
 	__attribute__((unused)) idx_t p##_ctx = q->latest_ctx; \
-	q->accum.val_den = 1; \
+	q->accum.INTEGER.val_den = 1; \
 	if (!is_##val_type(p)) { throw_error(q, p, "type_error", #val_type); return 0; }
 
 #define GET_FIRST_RAW_ARG(p,val_type) \

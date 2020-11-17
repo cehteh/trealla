@@ -228,7 +228,7 @@ struct cell_ {
 
 		struct {
 			cell *attrs;
-			idx_t val_off;
+			idx_t var_off;
 			idx_t var_nbr;
 		}VARIABLE;
 	};
