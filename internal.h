@@ -222,7 +222,6 @@ struct cell_ {
 			};
 
 			idx_t val_off;
-
 			idx_t cgen;				// used with cuts
 		}LITERAL;
 

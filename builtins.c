@@ -1874,7 +1874,7 @@ static void collect_vars(query *q, cell *p1, idx_t p1_ctx, idx_t nbr_cells)
 			if (!found) {
 				g_tab1[g_tab_idx] = q->latest_ctx;
 				g_tab2[g_tab_idx] = c->VARIABLE.var_nbr;
-				g_tab3[g_tab_idx] = c->LITERAL.val_off;
+				g_tab3[g_tab_idx] = c->VARIABLE.var_off;
 				g_tab4[g_tab_idx] = 1;
 				g_tab5[g_tab_idx] = is_anon(c) ? 1 : 0;
 				g_tab_idx++;
