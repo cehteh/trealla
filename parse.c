@@ -566,10 +566,16 @@ static clause* assert_begin(module *m, term *t, bool consulting)
 	if (is_cstring(t->cells)) {
 		cell *c = t->cells;
 		idx_t off = index_from_pool(GET_STR(c));
-		if (is_blob(c) && !is_const_cstring(c)) free(c->CSTRING.val_str);
-		c->LITERAL.val_off = off;
-		ensure (c->LITERAL.val_off != ERR_IDX);
+		if (off == ERR_IDX)
+			return NULL;
+
+		if (is_blob(c) && !is_const_cstring(c)) {
+			free(c->CSTRING.val_str);
+			c->CSTRING.val_str = NULL;
+		}
+
 		c->val_type = TYPE_LITERAL;
+		c->LITERAL.val_off = off;
 		c->flags = 0;
 	}
 
@@ -584,9 +590,14 @@ static clause* assert_begin(module *m, term *t, bool consulting)
 		idx_t off = index_from_pool(GET_STR(c));
 		if(off == ERR_IDX)
 			return NULL;
-		if (is_blob(c) && !is_const_cstring(c)) free(c->CSTRING.val_str);
-		c->LITERAL.val_off = off;
+
+		if (is_blob(c) && !is_const_cstring(c)) {
+			free(c->CSTRING.val_str);
+			c->CSTRING.val_str = NULL;
+		}
+
 		c->val_type = TYPE_LITERAL;
+		c->LITERAL.val_off = off;
 		c->flags = 0;
 	}
 

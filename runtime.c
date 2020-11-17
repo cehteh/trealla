@@ -315,8 +315,7 @@ static void trim_heap(query *q, const choice *ch)
 				}
 			}
 
-			c->val_type = TYPE_EMPTY;
-			c->VARIABLE.attrs = NULL;
+			*c = (cell){0};
 		}
 
 		arena *save = a;
@@ -421,8 +420,10 @@ static void reuse_frame(query *q, unsigned nbr_vars)
 			slot *e = GET_SLOT(g, i);
 			cell *c = &e->c;
 
-			if (is_string(c) && !is_const_cstring(c))
+			if (is_string(c) && !is_const_cstring(c)) {
 				free(c->CSTRING.val_str);
+				c->CSTRING.val_str = NULL;
+			}
 		}
 
 		slot *from = GET_SLOT(new_g, 0);
