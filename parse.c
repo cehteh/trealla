@@ -1611,7 +1611,6 @@ void parser_assign_vars(parser *p, unsigned start, bool rebase)
 
 	cell *c = make_cell(p);
 	ensure(c);
-	//memset(c, 0, sizeof(cell)); //cehteh: make_cell should return a initialized cell?
 	c->val_type = TYPE_END;
 	c->nbr_cells = 1;
 
@@ -1850,7 +1849,6 @@ static cell *make_literal(parser *p, idx_t offset)
 		return NULL;
 
 	cell *c = make_cell(p);
-	//memset(c, 0, sizeof(cell));
 	c->val_type = TYPE_LITERAL;
 	c->nbr_cells = 1;
 	c->LITERAL.val_off = offset;
@@ -2744,7 +2742,6 @@ unsigned parser_tokenize(parser *p, int args, int consing)
 
 		p->start_term = false;
 		cell *c = make_cell(p);
-		//memset(c, 0, sizeof(cell));
 		c->nbr_cells = 1;
 		c->val_type = p->val_type;
 		SET_OP(c,optype);
