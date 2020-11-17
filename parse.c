@@ -254,6 +254,7 @@ cell *list_head(cell *l)
 	if (!is_string(l))
 		return l + 1;
 
+        assert(l->CSTRING.val_str);
 	size_t n = len_char_utf8(l->CSTRING.val_str);
 
 	if (!n)
