@@ -254,7 +254,7 @@ cell *list_head(cell *l)
 	if (!is_string(l))
 		return l + 1;
 
-        assert(l->CSTRING.val_str);
+	assert(l->CSTRING.val_str);
 	size_t n = len_char_utf8(l->CSTRING.val_str);
 
 	if (!n)
@@ -292,7 +292,6 @@ cell *list_tail(cell *l, cell *tmp)
 		tmp->arity = 2;
 		tmp->CSTRING.val_str = l->CSTRING.val_str + n;
 		tmp->CSTRING.len_str = l->CSTRING.len_str - n;
-		tmp->LITERAL.match = NULL;
 		return tmp;
 	}
 
