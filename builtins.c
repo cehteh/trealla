@@ -586,7 +586,7 @@ cell *deep_clone_to_heap(query *q, cell *p1, idx_t p1_ctx)
 	return tmp;
 }
 
-void throw_error(query *q, cell *c, const char *err_type, const char *expected)
+void throw_error_impl(query *q, cell *c, const char *err_type, const char *expected)
 {
 	cell tmp;
 

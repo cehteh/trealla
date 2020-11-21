@@ -4,6 +4,14 @@
 
 typedef struct prolog_ prolog;
 
+typedef enum {
+  //cehteh: checkme pl_yield = -2; can we keep the yield state here?
+  //cehteh: as well pl_halt
+  pl_exception = -1,
+  pl_failure = 0,
+  pl_success = 1,
+} prolog_state;
+
 prolog *pl_create();
 void pl_destroy(prolog*);
 

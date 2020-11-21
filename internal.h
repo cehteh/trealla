@@ -110,6 +110,11 @@ typedef uint32_t idx_t;
 #define CHECK_SENTINEL(expr, err_sentinel, ...) CHECK_SENTINEL_((expr), err_sentinel, ## __VA_ARGS__, error=true)
 #define CHECK_SENTINEL_(expr, err_sentinel, on_error, ...) do { if((expr) == err_sentinel){on_error;}} while (0)
 
+#define throw_error(query, cell, err_type, expected, ...) throw_error_(query, cell, err_type, expected, ## __VA_ARGS__, pl_exception)
+#define throw_error_(query, cell, err_type, expected, ret, ...) do { throw_error_impl(query, cell, err_type, expected); return ret; } while (0)
+
+#define may_throw(fn, ...) do { if((fn) == pl_exception) {__VA_ARGS__; return pl_exception; } } while (0)
+
 // If changing the order of these: see runtime.c dispatch table
 
 enum {
@@ -542,7 +547,7 @@ void do_reduce(cell *n);
 unsigned create_vars(query *q, unsigned nbr);
 unsigned count_bits(uint8_t *mask, unsigned bit);
 void try_me(const query *q, unsigned vars);
-void throw_error(query *q, cell *c, const char *err_type, const char *expected);
+void throw_error_impl(query *q, cell *c, const char *err_type, const char *expected);
 uint64_t get_time_in_usec(void);
 void clear_term(term *t);
 void do_db_load(module *m);
